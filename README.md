@@ -2,7 +2,7 @@
 Сервер и интеграция для [vosk-tts](https://github.com/alphacep/vosk-tts).
 Создано Grok и Gemini. Понятие не имею как это работает.
 
-Запуск сервера.
+Запуск сервера
 ```
 mkdir vosk-tts-server
 cd vosk-tts-server
@@ -22,7 +22,8 @@ http://127.0.0.1:5002/synthesize?text=Привет%2C%20мир
 ```
 
 
-Интеграция.
+Интеграция
+
 Скопировать каталог vosk_tts в /homeassistant/custom_components
 В конфигурационном файле добавить запись, не забудьте указать верный адрес сервера:
 ```
