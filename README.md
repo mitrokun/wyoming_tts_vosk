@@ -13,7 +13,6 @@ source venv/bin/activate  # Linux/macOS
 # venv\Scripts\activate  # Windows
 
 # Установите необходимые библиотеки
-pip install vosk-tts fastapi uvicorn[standard] soundfile python-dotenv
 pip install vosk-tts fastapi uvicorn[standard] soundfile python-dotenv numpy
 
 uvicorn main:app --host 0.0.0.0 --port 5002 --reload
