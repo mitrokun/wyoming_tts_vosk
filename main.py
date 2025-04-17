@@ -7,6 +7,8 @@ from fastapi.responses import Response
 from vosk_tts import Model, Synth
 from dotenv import load_dotenv
 import asyncio
+from num2words import num2words
+import re
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +30,7 @@ DEFAULT_MODEL_NAME = "vosk-model-tts-ru-0.7-multi"
 MODEL_NAME = os.getenv("VOSK_MODEL_NAME", DEFAULT_MODEL_NAME)
 DEFAULT_SPEAKER_ID = 4
 SPEAKER_ID = int(os.getenv("VOSK_SPEAKER_ID", DEFAULT_SPEAKER_ID))
-MAX_TEXT_LENGTH = 800
+MAX_TEXT_LENGTH = 1200
 ERROR_MESSAGE = "Превышен лимит ввода"
 
 # --- Инициализация Vosk TTS ---
@@ -48,19 +50,29 @@ app = FastAPI(
     version="1.1.0"
 )
 
+# --- Функция нормализации чисел ---
+def normalize_numbers(text: str) -> str:
+    """Преобразует числа в текстовую форму (например, 123 -> сто двадцать три)."""
+    def replace_number(match):
+        num = match.group(0)
+        try:
+            # Преобразуем число в слова на русском языке
+            return num2words(int(num), lang='ru')
+        except (ValueError, TypeError):
+            return num  # Если не удалось преобразовать, возвращаем оригинальное значение
+
+    # Ищем все числа в тексте (целые числа)
+    normalized_text = re.sub(r'\d+', replace_number, text)
+    return normalized_text
+
 # --- Логика синтеза ---
-async def synthesize_audio(text: str, speaker_id: int, model: Model, synth: Synth) -> bytes:
+async def synthesize_audio(text: str, speaker_id: int, speech_rate: float, model: Model, synth: Synth) -> bytes:
     """Синтезирует речь и возвращает аудиоданные в формате WAV."""
     try:
-        # Проверка доступных дикторов
-        available_speakers = model.list_speakers() if hasattr(model, 'list_speakers') else []
-        if available_speakers and speaker_id not in available_speakers:
-            raise ValueError(f"Неверный ID диктора: {speaker_id}. Доступные ID: {available_speakers}")
-
         # Выполняем синтез в отдельном потоке
         def sync_synthesize():
             buffer = io.BytesIO()
-            synth.synth(text, buffer, speaker_id=speaker_id)
+            synth.synth(text, buffer, speaker_id=speaker_id, speech_rate=speech_rate)
             return buffer.getvalue()
 
         loop = asyncio.get_event_loop()
@@ -83,24 +95,36 @@ async def synthesize_audio(text: str, speaker_id: int, model: Model, synth: Synt
          summary="Синтезировать речь из текста",
          response_description="Аудиофайл в формате WAV",
          responses={
-             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или сообщением о превыщение лимита"},
+             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или аудио с сообщением об ошибке длины текста"},
              400: {"description": "Неверные параметры запроса"},
              500: {"description": "Ошибка синтеза речи"}
          })
 async def synthesize_speech(
     text: str = Query(..., description="Текст для синтеза речи", min_length=1),
-    speaker: int = Query(SPEAKER_ID, description="ID диктора")
+    speaker: int = Query(SPEAKER_ID, description="ID диктора"),
+    speech_rate: float = Query(1.0, description="Скорость речи (0.2–2.0)", ge=0.2, le=2.0)
 ):
-    """Синтезирует текст в аудио (WAV). Если текст длиннее MAX_TEXT_LENGTH символов, возвращает аудио с сообщением ERROR_MESSAGE."""
+    """Синтезирует текст в аудио (WAV). Если текст длиннее 1200 символов, возвращает аудио с сообщением 'Превышен лимит ввода'."""
     try:
+        # Проверка доступных дикторов
+        available_speakers = model.list_speakers() if hasattr(model, 'list_speakers') else []
+        if available_speakers and speaker not in available_speakers:
+            raise HTTPException(status_code=400, detail=f"Неверный ID диктора: {speaker}. Доступные ID: {available_speakers}")
+
+        # Нормализация чисел в тексте
+        normalized_text = normalize_numbers(text)
+        logger.info(f"Нормализованный текст: {normalized_text}")
+
         # Проверка длины текста
-        if len(text) > MAX_TEXT_LENGTH:
-            logger.warning(f"Текст превышает {MAX_TEXT_LENGTH} символов (длина: {len(text)}). Синтезируется сообщение об ошибке")
-            wav_bytes = await synthesize_audio(ERROR_MESSAGE, speaker, model, synth)
+        if len(normalized_text) > MAX_TEXT_LENGTH:
+            logger.warning(f"Текст превышает {MAX_TEXT_LENGTH} символов (длина: {len(normalized_text)}). Синтезируется сообщение об ошибке")
+            wav_bytes = await synthesize_audio(ERROR_MESSAGE, speaker, speech_rate, model, synth)
             return Response(content=wav_bytes, media_type="audio/wav")
 
-        wav_bytes = await synthesize_audio(text, speaker, model, synth)
+        wav_bytes = await synthesize_audio(normalized_text, speaker, speech_rate, model, synth)
         return Response(content=wav_bytes, media_type="audio/wav")
+    except HTTPException as e:
+        raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
