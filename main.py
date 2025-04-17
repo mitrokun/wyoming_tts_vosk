@@ -83,7 +83,7 @@ async def synthesize_audio(text: str, speaker_id: int, model: Model, synth: Synt
          summary="Синтезировать речь из текста",
          response_description="Аудиофайл в формате WAV",
          responses={
-             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или аудио с сообщением об ошибке длины текста"},
+             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или сообщением о превыщение лимита"},
              400: {"description": "Неверные параметры запроса"},
              500: {"description": "Ошибка синтеза речи"}
          })
@@ -91,7 +91,7 @@ async def synthesize_speech(
     text: str = Query(..., description="Текст для синтеза речи", min_length=1),
     speaker: int = Query(SPEAKER_ID, description="ID диктора")
 ):
-    """Синтезирует текст в аудио (WAV). Если текст длиннее 1000 символов, возвращает аудио с сообщением 'Превышен лимит ввода'."""
+    """Синтезирует текст в аудио (WAV). Если текст длиннее MAX_TEXT_LENGTH символов, возвращает аудио с сообщением ERROR_MESSAGE."""
     try:
         # Проверка длины текста
         if len(text) > MAX_TEXT_LENGTH:
