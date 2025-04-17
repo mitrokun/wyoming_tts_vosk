@@ -6,7 +6,8 @@
 ```
 mkdir vosk-tts-server
 cd vosk-tts-server
-# Скопировать main.py
+# Скопировать main.py и err.wav (заглушка для HA, которая срабатывает при превышение MAX_TEXT_LENGTH,
+# число символов подбирайте под производительность cpu, генерация должна быть короче 5с )
 # Создайте и активируйте виртуальное окружение (рекомендуется)
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
