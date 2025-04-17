@@ -1,7 +1,6 @@
 import os
 import io
 import logging
-from pathlib import Path
 import soundfile as sf
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import Response
@@ -29,8 +28,8 @@ DEFAULT_MODEL_NAME = "vosk-model-tts-ru-0.7-multi"
 MODEL_NAME = os.getenv("VOSK_MODEL_NAME", DEFAULT_MODEL_NAME)
 DEFAULT_SPEAKER_ID = 4
 SPEAKER_ID = int(os.getenv("VOSK_SPEAKER_ID", DEFAULT_SPEAKER_ID))
-MAX_TEXT_LENGTH = 1200
-ERROR_WAV_PATH = Path(__file__).parent / "err.wav"
+MAX_TEXT_LENGTH = 800
+ERROR_MESSAGE = "Превышен лимит ввода"
 
 # --- Инициализация Vosk TTS ---
 try:
@@ -84,24 +83,20 @@ async def synthesize_audio(text: str, speaker_id: int, model: Model, synth: Synt
          summary="Синтезировать речь из текста",
          response_description="Аудиофайл в формате WAV",
          responses={
-             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или ошибка длины текста"},
+             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или аудио с сообщением об ошибке длины текста"},
              400: {"description": "Неверные параметры запроса"},
-             500: {"description": "Ошибка синтеза речи или доступ к err.wav"}
+             500: {"description": "Ошибка синтеза речи"}
          })
 async def synthesize_speech(
     text: str = Query(..., description="Текст для синтеза речи", min_length=1),
     speaker: int = Query(SPEAKER_ID, description="ID диктора")
 ):
-    """Синтезирует текст в аудио (WAV). Если текст длиннее 1000 символов, возвращает err.wav."""
+    """Синтезирует текст в аудио (WAV). Если текст длиннее 1000 символов, возвращает аудио с сообщением 'Превышен лимит ввода'."""
     try:
         # Проверка длины текста
         if len(text) > MAX_TEXT_LENGTH:
-            logger.warning(f"Текст превышает {MAX_TEXT_LENGTH} символов (длина: {len(text)}). Возвращается err.wav")
-            if not ERROR_WAV_PATH.exists():
-                logger.error(f"Файл {ERROR_WAV_PATH} не найден")
-                raise RuntimeError(f"Файл ошибки {ERROR_WAV_PATH} не найден")
-            with ERROR_WAV_PATH.open("rb") as f:
-                wav_bytes = f.read()
+            logger.warning(f"Текст превышает {MAX_TEXT_LENGTH} символов (длина: {len(text)}). Синтезируется сообщение об ошибке")
+            wav_bytes = await synthesize_audio(ERROR_MESSAGE, speaker, model, synth)
             return Response(content=wav_bytes, media_type="audio/wav")
 
         wav_bytes = await synthesize_audio(text, speaker, model, synth)
