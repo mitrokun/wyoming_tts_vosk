@@ -113,7 +113,7 @@ async def synthesize_speech(
 
         # Нормализация чисел в тексте
         normalized_text = normalize_numbers(text)
-        logger.info(f"Нормализованный текст: {normalized_text}")
+        logger.info(f"Длина текста: {len(normalized_text)}")
 
         # Проверка длины текста
         if len(normalized_text) > MAX_TEXT_LENGTH:
