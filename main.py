@@ -32,6 +32,7 @@ DEFAULT_SPEAKER_ID = 4
 SPEAKER_ID = int(os.getenv("VOSK_SPEAKER_ID", DEFAULT_SPEAKER_ID))
 MAX_TEXT_LENGTH = 1200
 ERROR_MESSAGE = "Превышен лимит ввода"
+AVAILABLE_SPEAKERS = [0, 1, 2, 3, 4]  # Фиксированный список дикторов из документации
 
 # --- Инициализация Vosk TTS ---
 try:
@@ -95,7 +96,7 @@ async def synthesize_audio(text: str, speaker_id: int, speech_rate: float, model
          summary="Синтезировать речь из текста",
          response_description="Аудиофайл в формате WAV",
          responses={
-             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или аудио с сообщением об ошибке длины текста"},
+             200: {"content": {"audio/wav": {}}, "description": "Успешный синтез речи или сообщение о превышении лимита"},
              400: {"description": "Неверные параметры запроса"},
              500: {"description": "Ошибка синтеза речи"}
          })
@@ -104,12 +105,11 @@ async def synthesize_speech(
     speaker: int = Query(SPEAKER_ID, description="ID диктора"),
     speech_rate: float = Query(1.0, description="Скорость речи (0.2–2.0)", ge=0.2, le=2.0)
 ):
-    """Синтезирует текст в аудио (WAV). Если текст длиннее 1200 символов, возвращает аудио с сообщением 'Превышен лимит ввода'."""
+    """Синтезирует текст в аудио (WAV). Если текст длиннее MAX_TEXT_LENGTH символов, возвращает аудио с сообщением ERROR_MESSAGE."""
     try:
         # Проверка доступных дикторов
-        available_speakers = model.list_speakers() if hasattr(model, 'list_speakers') else []
-        if available_speakers and speaker not in available_speakers:
-            raise HTTPException(status_code=400, detail=f"Неверный ID диктора: {speaker}. Доступные ID: {available_speakers}")
+        if speaker not in AVAILABLE_SPEAKERS:
+            raise HTTPException(status_code=400, detail=f"Неверный ID диктора: {speaker}. Доступные ID: {AVAILABLE_SPEAKERS}")
 
         # Нормализация чисел в тексте
         normalized_text = normalize_numbers(text)
@@ -137,19 +137,12 @@ async def synthesize_speech(
 @app.get("/health", summary="Проверка состояния сервера")
 async def health_check():
     """Проверяет, что сервер и модель готовы к работе."""
-    speakers = []
-    try:
-        if hasattr(model, 'list_speakers'):
-            speakers = model.list_speakers()
-    except Exception:
-        speakers = ["Не удалось получить список"]
-
     return {
         "status": "ok",
         "model_name": MODEL_NAME,
         "model_loaded": True,
         "default_speaker_id": SPEAKER_ID,
-        "available_speaker_ids": speakers
+        "available_speaker_ids": AVAILABLE_SPEAKERS
     }
 
 # --- Запуск сервера ---
