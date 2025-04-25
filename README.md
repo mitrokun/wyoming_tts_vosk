@@ -23,7 +23,13 @@ uvicorn main:app --host 0.0.0.0 --port 5002 --reload
 # Тест
 http://127.0.0.1:5002/synthesize?text=Привет%2C%20мир
 ```
-
+### CUDA (12.x) 
+Ставим пакет
+`pip install onnxruntime-gpu`
+Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно для vosk_tts-0.3.56).
+Ищем в каталоге python `...\Lib\site-packages\vosk_tts\model.py`  
+Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
+Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
 
 ## Интеграция
 
