@@ -4,13 +4,9 @@
 
 ## Запуск сервера
 ```
-mkdir vosk-tts-server
-cd vosk-tts-server
-# Скопировать main.py
-# Для ипользования с esp32 спутниками HA скорректируйте значение MAX_TEXT_LENGTH,
-# число символов подбирайте под производительность cpu, суммарно процесс должен быть короче 5с
-# высокий лимит для стандартных прошивок некритичен, будет отсутствовать ответ и терминал вернется к обнаружению WW
-# Создайте и активируйте виртуальное окружение (рекомендуется)
+git clone https://github.com/mitrokun/vosk_tts_hass.git
+cd vosk_tts_hass
+# Создайте и активируйте виртуальное окружение (опционально)
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # venv\Scripts\activate  # Windows
@@ -18,15 +14,21 @@ source venv/bin/activate  # Linux/macOS
 # Установите необходимые библиотеки
 pip install vosk-tts fastapi uvicorn[standard] soundfile python-dotenv num2words numpy
 
+# Для ипользования с esp32 спутниками HA скорректируйте значение MAX_TEXT_LENGTH в main.py,
+# число символов подбирайте под производительность cpu, суммарно процесс должен быть короче 5с
+# высокий лимит для стандартных прошивок некритичен, будет отсутствовать ответ и терминал вернется к обнаружению WW
+# Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
+
+# Запуск
 uvicorn main:app --host 0.0.0.0 --port 5002 --reload
 
 # Тест
-http://127.0.0.1:5002/synthesize?text=Привет%2C%20мир
+http://127.0.0.1:5002/synthesize?text=Привет мир!
 ```
-### CUDA (12.x) 
+## cuda (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
-Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно для vosk_tts-0.3.56).
+Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно для vosk_tts-0.3.58).
 Ищем в каталоге python `...\Lib\site-packages\vosk_tts\model.py`  
 Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
 Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
