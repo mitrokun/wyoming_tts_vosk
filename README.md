@@ -11,8 +11,8 @@ python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # venv\Scripts\activate  # Windows
 
-# Установите необходимые библиотеки
-pip install vosk-tts fastapi uvicorn[standard] soundfile python-dotenv num2words numpy
+# Установите необходимые библиотеки (для 0.8 ставьте актуальную версию vosk-tts)
+pip installl vosk-tts==0.3.56 fastapi uvicorn[standard] soundfile python-dotenv num2words numpy
 
 # Для ипользования с esp32 спутниками HA скорректируйте значение MAX_TEXT_LENGTH в main.py,
 # число символов подбирайте под производительность cpu, суммарно процесс должен быть короче 5с
@@ -28,7 +28,7 @@ http://127.0.0.1:5002/synthesize?text=Привет мир!
 ## cuda (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
-Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно для vosk_tts-0.3.58).
+Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно на момент написания с vosk_tts-0.3.58).
 Ищем в каталоге python `...\Lib\site-packages\vosk_tts\model.py`  
 Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
 Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
