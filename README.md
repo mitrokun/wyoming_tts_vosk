@@ -1,4 +1,4 @@
-# Vosk TTS Home Assistant 
+# Vosk TTS Home Assistant + Wyoming Protocol
 Сервер и интеграция для [vosk-tts](https://github.com/alphacep/vosk-tts).
 Создано Grok и Gemini. Понятие не имею как оно работает, сколько неоптимальных решений и лишнего кода используется.
 
