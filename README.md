@@ -1,5 +1,5 @@
 # Vosk TTS Home Assistant [Wyoming Protocol]
-Сервер и интеграция для [vosk-tts](https://github.com/alphacep/vosk-tts).
+Сервер ~~и интеграция~~ для [vosk-tts](https://github.com/alphacep/vosk-tts).
 Создано Grok и Gemini. Понятие не имею как оно работает, сколько неоптимальных решений и лишнего кода используется.
 
 ## Обновленный вариант сервера для Wyoming Protocol
@@ -16,7 +16,7 @@ python __main__.py --uri tcp://0.0.0.0:10205
 ```
 ---
 
-## Предыдущая реализация сервера
+### Предыдущая реализация сервера
 ```
 git clone https://github.com/mitrokun/vosk_tts_hass.git
 cd vosk_tts_hass
@@ -39,7 +39,7 @@ uvicorn main:app --host 0.0.0.0 --port 5002 --reload
 # Тест
 http://127.0.0.1:5002/synthesize?text=Привет мир!
 ```
-## cuda (12.x) 
+#### cuda (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
 Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно на момент написания с vosk_tts-0.3.58).
@@ -47,7 +47,7 @@ http://127.0.0.1:5002/synthesize?text=Привет мир!
 Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
 Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
 
-## Интеграция
+### Интеграция
 
 Скопировать каталог vosk_tts в /homeassistant/custom_components
 В конфигурационном файле добавить запись, не забудьте указать верный адрес сервера:
