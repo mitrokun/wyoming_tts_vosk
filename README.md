@@ -1,4 +1,4 @@
-# Vosk TTS Home Assistant + Wyoming Protocol
+# Vosk TTS Home Assistant [Wyoming Protocol]
 Сервер и интеграция для [vosk-tts](https://github.com/alphacep/vosk-tts).
 Создано Grok и Gemini. Понятие не имею как оно работает, сколько неоптимальных решений и лишнего кода используется.
 
@@ -7,14 +7,16 @@
 Работа с числами и английскими словами максимально упрощенная (смотрите speech_tts.py), лишь бы воск не мычал.
 Лучше сразу делайте правильный системный промт для LLM, а в шаблонах можно использовать [интеграцию](https://github.com/AlexxIT/MorphNumbers) AlexxIT
 ```
-# Установите требуемые библиотеки (см. ниже)
+# Установите требуемые библиотеки (возможно что-то ещё)
+pip installl vosk-tts==0.3.56 wyoming num2words numpy
 # Скопируйте папку wyoming_vosk и перейдите в неё
 # Запустите сервер с кастомным портом
 python __main__.py --uri tcp://0.0.0.0:10205
 # в HA добавьте службу в интеграции Wyoming Protocol
 ```
+---
 
-## Запуск сервера
+## Предыдущая реализация сервера
 ```
 git clone https://github.com/mitrokun/vosk_tts_hass.git
 cd vosk_tts_hass
