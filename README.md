@@ -8,11 +8,12 @@
 Лучше сразу делайте правильный системный промт для LLM, а в шаблонах можно использовать [интеграцию](https://github.com/AlexxIT/MorphNumbers) AlexxIT
 ```
 # Установите требуемые библиотеки (возможно что-то не учёл)
-pip install vosk-tts==0.3.56 wyoming num2words numpy
+pip install vosk-tts wyoming num2words numpy
 # Скопируйте папку wyoming_vosk и перейдите в неё
 # Запустите сервер (здесь пример с кастомным портом)
 python __main__.py --uri tcp://0.0.0.0:10205
 # в HA добавьте службу в интеграции Wyoming Protocol
+# Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
 ```
 ---
 
@@ -42,8 +43,6 @@ http://127.0.0.1:5002/synthesize?text=Привет мир!
 #### cuda (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
-Заменить провайдера на CUDAExecutionProvider в файле model.py (актульно на момент написания с vosk_tts-0.3.58).
-Ищем в каталоге python `...\Lib\site-packages\vosk_tts\model.py`  
 Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
 Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
 
