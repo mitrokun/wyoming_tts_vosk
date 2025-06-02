@@ -26,8 +26,8 @@ python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # venv\Scripts\activate  # Windows
 
-# Установите необходимые библиотеки (для 0.8 ставьте актуальную версию vosk-tts)
-pip install vosk-tts==0.3.56 fastapi uvicorn[standard] soundfile python-dotenv num2words numpy
+# Установите необходимые библиотеки
+pip install vosk-tts fastapi uvicorn[standard] soundfile python-dotenv num2words numpy
 
 # Для ипользования с esp32 спутниками HA скорректируйте значение MAX_TEXT_LENGTH в main.py,
 # число символов подбирайте под производительность cpu, суммарно процесс должен быть короче 5с
