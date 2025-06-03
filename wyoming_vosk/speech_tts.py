@@ -11,7 +11,6 @@ from vosk_tts import Model, Synth
 log = logging.getLogger(__name__)
 
 # Параметры аудио по умолчанию для Vosk TTS моделей
-# ВАЖНО: Убедитесь, что эти значения соответствуют вашей модели!
 DEFAULT_SAMPLE_RATE = 22050
 DEFAULT_SAMPLE_WIDTH = 2  # 16 бит = 2 байта
 DEFAULT_CHANNELS = 1      # Моно
@@ -30,20 +29,35 @@ class SpeechTTS:
     и возвратом аудио данных в памяти.
     """
 
+    _emoji_pattern = re.compile(
+        "["
+        u"\U0001F600-\U0001F64F"  # Emoticons
+        u"\U0001F300-\U0001F5FF"  # Symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # Transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # Flags (iOS / Regional Indicator Symbols)
+        u"\U00002600-\U000026FF"  # Miscellaneous symbols
+        u"\U00002700-\U000027BF"  # Dingbats
+        u"\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+        u"\u200D"                # Zero Width Joiner
+        u"\uFE0F"                # Variation Selector-16
+        "]+",
+        flags=re.UNICODE
+    )
+
+    _chars_to_delete_for_translate = "#$“”„«»*\"‘’‚‹›'"
+    _map_1_to_1_from_for_translate = "—–−\xa0"
+    _map_1_to_1_to_for_translate   = "--- " 
+    
+    _translation_table = str.maketrans(
+        _map_1_to_1_from_for_translate,
+        _map_1_to_1_to_for_translate,
+        _chars_to_delete_for_translate
+    )
+
     def __init__(self, vosk_model_name: str) -> None:
-        """
-        Инициализация с предзагрузкой модели Vosk TTS.
-        Args:
-            vosk_model_name: Имя или путь к модели Vosk TTS.
-        Raises:
-            RuntimeError: Если не удалось загрузить модель или создать синтезатор.
-        """
         log.info(f"Initializing Vosk Speech TTS and preloading model: {vosk_model_name}")
         self.vosk_model_name = vosk_model_name
-        self._lock = asyncio.Lock()  # Блокировка для потокобезопасного доступа к synth
-
-        # Сохраняем предполагаемые параметры аудио
-        # TODO: Уточнить, можно ли их получить из объекта model или synth
+        self._lock = asyncio.Lock()
         self.sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_width = DEFAULT_SAMPLE_WIDTH
         self.channels = DEFAULT_CHANNELS
@@ -58,66 +72,82 @@ class SpeechTTS:
             log.error(f"Failed to preload Vosk model '{self.vosk_model_name}' or initialize Synth: {e}", exc_info=True)
             raise RuntimeError(f"Failed to initialize Vosk TTS: {e}") from e
 
+    def _normalize_special_chars(self, text: str) -> str:
+        """Заменяет 'сложные' символы, удаляет эмодзи, разделяет буквы/цифры и нормализует пробелы."""
+        
+        # Шаг 1: Удаляем эмодзи
+        text = self._emoji_pattern.sub(r'', text)
+        
+        # Шаг 2: Применяем таблицу трансляции для большинства спецсимволов
+        text = text.translate(self._translation_table)
+        
+        # Шаг 3: Отдельная замена для многоточия (1 символ -> несколько)
+        text = text.replace('…', '...')
+        
+        # Шаг 4: Разделяем буквы и цифры пробелом
+        text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(\d)', r'\1 \2', text)
+        text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)
+        
+        # Шаг 5: Нормализуем пробелы и переносы строк
+        text = text.replace('\n', ' ').replace('\t', ' ')
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+
     def _normalize_numbers(self, text: str) -> str:
-        """
-        Преобразует числа в тексте в их словесное представление на русском языке.
-        Args:
-            text: Входной текст.
-        Returns:
-            Текст с числами, преобразованными в слова.
-        """
         def replace_number(match):
             num = match.group(0)
             try:
-                return num2words(int(num), lang='ru')
+                if num.isdigit():
+                    return num2words(int(num), lang='ru')
+                return num 
             except (ValueError, OverflowError):
-                log.warning(f"Could not normalize number: {num}")
+                log.warning(f"Could not normalize number: {num}") # Оставляем этот лог, он важен
                 return num
         return re.sub(r'\b\d+\b', replace_number, text)
 
     def _normalize_english(self, text: str) -> str:
-        """
-        Транслитерирует английские слова и буквы в русские, сохраняя пробелы между словами.
-        Args:
-            text: Входной текст.
-        Returns:
-            Текст с транслитерированными английскими словами и буквами.
-        """
         def replace_english(match):
-            word = match.group(0).lower()  # Приводим к нижнему регистру
-            # Транслитерируем каждую букву и соединяем без пробелов внутри слова
+            word = match.group(0).lower()
             return ''.join(ENGLISH_TO_RUSSIAN.get(c, c) for c in word)
-
-        # Ищем английские слова или отдельные буквы (a-z, A-Z)
         return re.sub(r'\b[a-zA-Z]+\b', replace_english, text)
 
-    async def synthesize(self, text: str, speaker_id: int) -> bytes | None:
-        """
-        Синтезирует текст в речь, используя предзагруженный синтезатор Vosk.
-        Возвращает сырые байты аудио PCM 16-bit little-endian mono @ 22050 Hz (предположительно).
-        Args:
-            text: Текст для синтеза.
-            speaker_id: ID спикера для использования в модели Vosk.
-        Returns:
-            Байтовый массив аудиоданных или None в случае ошибки синтеза.
-        """
-        log.debug(f"Requested in-memory Vosk TTS synthesis for speaker_id: {speaker_id}, text: [{text[:50]}...]")
+    async def synthesize(self, text: str, speaker_id: int, speech_rate: float = 1.0) -> bytes | None:
+        log.debug(f"Requested TTS. Speaker: {speaker_id}, Rate: {speech_rate}, Original text: [{text[:100]}...]")
 
-        # Нормализуем числа и английские слова
-        normalized_text = self._normalize_numbers(text)
+        if not (0.5 <= speech_rate <= 2.0):
+            log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
+            speech_rate = max(0.5, min(2.0, speech_rate))
+
+        # Этап 1: Базовая нормализация символов, пробелов, эмодзи
+        normalized_text = self._normalize_special_chars(text)
+        
+        # Этап 2: Числа в слова
+        normalized_text = self._normalize_numbers(normalized_text)
+        
+        # Этап 3: Английские слова в русскую транслитерацию
         normalized_text = self._normalize_english(normalized_text)
-        log.debug(f"Normalized text: [{normalized_text[:50]}...]")
+        
+        if normalized_text[:100].strip() != text[:100].strip(): # Логируем только если финальный текст отличается от начального (без учета пробелов по краям)
+             log.debug(f"Normalized text for synthesis: [{normalized_text[:100]}...]")
+        else:
+            # Если текст не изменился значительно, можно просто вывести его для информации, если нужно
+            log.info(f"Using text for synthesis (largely unchanged): [{normalized_text[:100]}...]")
+
+
+        if not normalized_text.strip():
+            log.warning("Normalized text is empty or whitespace only. Skipping synthesis.")
+            return None
 
         try:
-            # Используем блокировку и запускаем в потоке
             async with self._lock:
                 audio_data = await asyncio.to_thread(
-                    self.synth.synth_audio,  # Считывает текст и возвращает аудиоданные (bytes или numpy.ndarray)
-                    normalized_text,  # Используем нормализованный текст
-                    speaker_id=speaker_id
+                    self.synth.synth_audio,
+                    normalized_text,
+                    speaker_id=speaker_id,
+                    speech_rate=speech_rate
                 )
 
-            # Преобразуем результат в bytes, если необходимо
             if hasattr(audio_data, 'tobytes'):
                 audio_bytes = audio_data.tobytes()
             elif isinstance(audio_data, bytes):
@@ -126,14 +156,17 @@ class SpeechTTS:
                 log.error(f"Unexpected return type from synth_audio: {type(audio_data)}. Expected bytes or object with .tobytes()")
                 return None
 
-            log.info(f'Vosk in-memory synthesis complete for speaker {speaker_id}, data length: {len(audio_bytes)} bytes')
+            log.info(f'Vosk synthesis complete. Speaker {speaker_id}, Rate: {speech_rate}, Audio length: {len(audio_bytes)} bytes')
             return audio_bytes
 
-        except AttributeError:
-            log.error(f"Method 'synth_audio' not found in vosk_tts.Synth. Cannot perform in-memory synthesis.", exc_info=True)
+        except AttributeError as e:
+            if 'synth_audio' in str(e):
+                 log.error(f"Method 'synth_audio' not found. vosk_tts library might be outdated/different.", exc_info=True)
+            else:
+                log.error(f"AttributeError during Vosk TTS synthesis: {e}", exc_info=True)
             return None
         except Exception as e:
-            log.error(f"Vosk TTS in-memory synthesis failed: {e}", exc_info=True)
-            return None  # Возвращаем None при ошибке
+            log.error(f"Vosk TTS synthesis failed: {e}", exc_info=True)
+            return None
 
 # --- END OF FILE speech_tts.py ---
