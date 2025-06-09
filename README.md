@@ -6,15 +6,18 @@
 Работа с числами и английскими словами максимально упрощенная (смотрите speech_tts.py), лишь бы воск не мычал.
 Лучше сразу делайте правильный системный промт для LLM, а в шаблонах можно использовать [интеграцию](https://github.com/AlexxIT/MorphNumbers) AlexxIT
 ```
-# Установите требуемые библиотеки (возможно что-то не учёл)
-pip install vosk-tts wyoming num2words numpy
-
 git clone https://github.com/mitrokun/wyoming_tts_vosk.git
 cd wyoming_tts_vosk
+# Установите требуемые библиотеки вручную /простой путь для Win
+pip install vosk-tts wyoming num2words numpy
 # Запустите сервер (здесь пример с кастомным портом)
 python -m wyoming_vosk --uri tcp://0.0.0.0:10205
+# Либо воспользуйтесь скриптами (linux) для поднятия venv 
+script/setup
+script/run
 # в HA добавьте службу в интеграции Wyoming Protocol
 # Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
+
 ```
 #### CUDA (12.x) 
 Ставим пакет
