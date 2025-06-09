@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import subprocess
+import sys
+import venv
+from pathlib import Path
+
+# --- Определяем пути ---
+# _DIR - папка, где находится этот скрипт (scripts/)
+_DIR = Path(__file__).parent
+# _PROGRAM_DIR - корневая папка проекта, на уровень выше
+_PROGRAM_DIR = _DIR.parent
+# _VENV_DIR - папка для виртуального окружения в корне проекта
+_VENV_DIR = _PROGRAM_DIR / ".venv"
+
+# --- Проверяем существование виртуального окружения ---
+context = venv.EnvBuilder().ensure_directories(_VENV_DIR)
+python_exe = context.env_exe
+
+if not Path(python_exe).exists():
+    print(f"Error: Virtual environment not found at {_VENV_DIR}.")
+    print(f"Please run 'python3 {_DIR / 'setup'}' first.")
+    sys.exit(1)
+
+# --- Формируем команду для запуска ---
+# Базовая часть команды
+command = [python_exe, "-m", "wyoming_vosk"]
+
+# Проверяем, были ли переданы аргументы в этот скрипт
+if len(sys.argv) > 1:
+    # Если да, используем их
+    user_args = sys.argv[1:]
+    print(f"Using provided arguments: {' '.join(user_args)}")
+    command.extend(user_args)
+else:
+    # Если нет, используем аргументы по умолчанию
+    default_args = ["--uri", "tcp://0.0.0.0:10205", "--speech-rate", "1.0"]
+    print(f"Using default arguments: {' '.join(default_args)}")
+    command.extend(default_args)
+
+# --- Запускаем сервер ---
+try:
+    # Используем Popen для более гибкого управления, но check_call тоже подходит
+    # subprocess.check_call(command, cwd=_PROGRAM_DIR)
+    
+    # Запускаем процесс. Программа будет работать, пока вы не остановите ее (Ctrl+C)
+    process = subprocess.Popen(command, cwd=_PROGRAM_DIR)
+    process.wait()
+except KeyboardInterrupt:
+    print("\nServer stopped by user.")
+except subprocess.CalledProcessError as e:
+    print(f"Error running wyoming_vosk: {e}")
+    sys.exit(1)
+except FileNotFoundError:
+    print(f"Error: Command not found '{command[0]}'. Is the venv corrupted?")
+    sys.exit(1)

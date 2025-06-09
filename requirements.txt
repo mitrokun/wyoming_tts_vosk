@@ -1,0 +1,4 @@
+vosk-tts
+wyoming
+num2words
+numpy
