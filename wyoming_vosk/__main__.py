@@ -12,8 +12,8 @@ from wyoming.info import Attribution, Info, TtsProgram, TtsVoice, Describe
 from wyoming.server import AsyncServer
 from wyoming.error import Error
 
-from handler import SpeechEventHandler
-from speech_tts import SpeechTTS
+from .handler import SpeechEventHandler
+from .speech_tts import SpeechTTS
 
 log = logging.getLogger(__name__)
 logging.getLogger('vosk_tts').setLevel(logging.WARNING)
