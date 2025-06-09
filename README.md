@@ -8,14 +8,17 @@
 ```
 git clone https://github.com/mitrokun/wyoming_tts_vosk.git
 cd wyoming_tts_vosk
-# Установите требуемые библиотеки вручную /простой путь для Win
+
+# Установите требуемые библиотеки вручную. Простой путь для Win
 pip install vosk-tts wyoming num2words numpy
 # Запустите сервер (здесь пример с кастомным портом)
 python -m wyoming_vosk --uri tcp://0.0.0.0:10205
+
 # Либо воспользуйтесь скриптами (linux) для поднятия venv 
 script/setup
 script/run
-# в HA добавьте службу в интеграции Wyoming Protocol
+
+# в HA добавьте службу в интеграции Wyoming Protocol [IP и 10200, если порт не назначен ключем]
 # Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
 
 ```
