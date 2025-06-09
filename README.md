@@ -1,7 +1,6 @@
 # Vosk TTS Home Assistant [Wyoming Protocol]
 Сервер ~~и интеграция~~ для [vosk-tts](https://github.com/alphacep/vosk-tts).
-Создано Grok и Gemini. Понятие не имею как оно работает, сколько неоптимальных решений и лишнего кода используется.
-
+При участии Grok и Gemini. 
 ## Обновленный вариант сервера для Wyoming Protocol
 Нативная поддержка протокола в HA (не требуется пользовательская интеграция). Возможность выбора спикера из интерфейса. Проверку длины ввода убрал.
 Работа с числами и английскими словами максимально упрощенная (смотрите speech_tts.py), лишь бы воск не мычал.
@@ -9,18 +8,25 @@
 ```
 # Установите требуемые библиотеки (возможно что-то не учёл)
 pip install vosk-tts wyoming num2words numpy
-# Скопируйте папку wyoming_vosk и перейдите в неё
+
+git clone https://github.com/mitrokun/wyoming_tts_vosk.git
+cd wyoming_tts_vosk
 # Запустите сервер (здесь пример с кастомным портом)
-python __main__.py --uri tcp://0.0.0.0:10205
+python -m wyoming_vosk --uri tcp://0.0.0.0:10205
 # в HA добавьте службу в интеграции Wyoming Protocol
 # Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
 ```
+#### CUDA (12.x) 
+Ставим пакет
+`pip install onnxruntime-gpu`
+Если есть ошибки при запуске, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
+
 ---
 
-### Предыдущая реализация сервера
+#### Предыдущая реализация сервера. Можно не читать.
 ```
 git clone https://github.com/mitrokun/vosk_tts_hass.git
-cd vosk_tts_hass
+cd wyoming_tts_vosk
 # Создайте и активируйте виртуальное окружение (опционально)
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
@@ -40,11 +46,6 @@ uvicorn main:app --host 0.0.0.0 --port 5002 --reload
 # Тест
 http://127.0.0.1:5002/synthesize?text=Привет мир!
 ```
-#### cuda (12.x) 
-Ставим пакет
-`pip install onnxruntime-gpu`
-Если есть ошибки при запуске main.py, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
-Когда всё завелось, MAX_TEXT_LENGTH можно прилично задрать. 
 
 ### Интеграция
 
