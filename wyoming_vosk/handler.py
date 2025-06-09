@@ -14,7 +14,7 @@ from wyoming.info import Describe, Info
 from wyoming.server import AsyncEventHandler
 from wyoming.tts import Synthesize
 
-from speech_tts import SpeechTTS
+from .speech_tts import SpeechTTS
 
 log = logging.getLogger(__name__)
 
