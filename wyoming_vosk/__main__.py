@@ -108,7 +108,7 @@ async def main() -> None:
     for speaker_id in speaker_ids:
         if speaker_id in VOICE_MAP:
             voice_description, voice_name_part = VOICE_MAP[speaker_id]
-            voice_name = f"vosk_{voice_name_part}"
+            voice_name = voice_name_part
 
             voices.append(
                 TtsVoice(
