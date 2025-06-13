@@ -44,7 +44,7 @@ class SpeechTTS:
         flags=re.UNICODE
     )
 
-    _chars_to_delete_for_translate = "#$“”„«»*\"‘’‚‹›'"
+    _chars_to_delete_for_translate = "=#$“”„«»*\"‘’‚‹›'"
     _map_1_to_1_from_for_translate = "—–−\xa0"
     _map_1_to_1_to_for_translate   = "--- " 
     
@@ -72,23 +72,49 @@ class SpeechTTS:
             log.error(f"Failed to preload Vosk model '{self.vosk_model_name}' or initialize Synth: {e}", exc_info=True)
             raise RuntimeError(f"Failed to initialize Vosk TTS: {e}") from e
 
+    def _choose_percent_form(self, number: int) -> str:
+        """Выбирает правильную форму слова 'процент' в зависимости от числа."""
+        if 10 < number % 100 < 20:
+            return "процентов"
+        
+        last_digit = number % 10
+        if last_digit == 1:
+            return "процент"
+        if last_digit in [2, 3, 4]:
+            return "процента"
+        
+        return "процентов"
+
+    def _normalize_percentages(self, text: str) -> str:
+        """Находит и заменяет конструкции вида '123%' и одиночные '%'."""
+        
+        def replace_match(match):
+            number_str = match.group(1)
+            try:
+                number_int = int(number_str)
+                number_words = num2words(number_int, lang='ru')
+                percent_word = self._choose_percent_form(number_int)
+                return f" {number_words} {percent_word} "
+            except (ValueError, OverflowError):
+                return f" {number_str} процентов "
+
+        # Шаг 1: Обрабатываем случаи "число + %"
+        processed_text = re.sub(r'(\d+)\s*\%', replace_match, text)
+
+        # Шаг 2: Обрабатываем оставшиеся одиночные символы '%', заменяя их на "процентов".
+        processed_text = processed_text.replace('%', ' процентов ')
+        
+        return processed_text
+
+
     def _normalize_special_chars(self, text: str) -> str:
         """Заменяет 'сложные' символы, удаляет эмодзи, разделяет буквы/цифры и нормализует пробелы."""
         
-        # Шаг 1: Удаляем эмодзи
         text = self._emoji_pattern.sub(r'', text)
-        
-        # Шаг 2: Применяем таблицу трансляции для большинства спецсимволов
         text = text.translate(self._translation_table)
-        
-        # Шаг 3: Отдельная замена для многоточия (1 символ -> несколько)
         text = text.replace('…', '...')
-        
-        # Шаг 4: Разделяем буквы и цифры пробелом
         text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(\d)', r'\1 \2', text)
         text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)
-        
-        # Шаг 5: Нормализуем пробелы и переносы строк
         text = text.replace('\n', ' ').replace('\t', ' ')
         text = re.sub(r'\s+', ' ', text).strip()
         
@@ -102,7 +128,7 @@ class SpeechTTS:
                     return num2words(int(num), lang='ru')
                 return num 
             except (ValueError, OverflowError):
-                log.warning(f"Could not normalize number: {num}") # Оставляем этот лог, он важен
+                log.warning(f"Could not normalize number: {num}")
                 return num
         return re.sub(r'\b\d+\b', replace_number, text)
 
@@ -119,21 +145,20 @@ class SpeechTTS:
             log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
             speech_rate = max(0.5, min(2.0, speech_rate))
 
-        # Этап 1: Базовая нормализация символов, пробелов, эмодзи
-        normalized_text = self._normalize_special_chars(text)
+        # Этап 1: "Умная" обработка процентов (должна идти до общей нормализации)
+        normalized_text = self._normalize_percentages(text)
         
-        # Этап 2: Числа в слова
+        # Этап 2: Базовая нормализация символов, пробелов, эмодзи
+        normalized_text = self._normalize_special_chars(normalized_text)
+        
+        # Этап 3: Оставшиеся числа в слова
         normalized_text = self._normalize_numbers(normalized_text)
         
-        # Этап 3: Английские слова в русскую транслитерацию
+        # Этап 4: Английские слова в русскую транслитерацию
         normalized_text = self._normalize_english(normalized_text)
         
-        if normalized_text[:100].strip() != text[:100].strip(): # Логируем только если финальный текст отличается от начального (без учета пробелов по краям)
-             log.debug(f"Normalized text for synthesis: [{normalized_text[:100]}...]")
-        else:
-            # Если текст не изменился значительно, можно просто вывести его для информации, если нужно
-            log.info(f"Using text for synthesis (largely unchanged): [{normalized_text[:100]}...]")
-
+        # Финальная чистка пробелов, которые могли добавиться на предыдущих шагах
+        normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
 
         if not normalized_text.strip():
             log.warning("Normalized text is empty or whitespace only. Skipping synthesis.")
