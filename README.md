@@ -12,20 +12,26 @@ cd wyoming_tts_vosk
 # Установите требуемые библиотеки вручную. Простой путь для Win
 pip install vosk-tts wyoming num2words numpy
 # Запустите сервер (здесь пример с кастомным портом)
-python -m wyoming_vosk --uri tcp://0.0.0.0:10205
+python -m wyoming_vosk --uri tcp://0.0.0.0:10205 --speech-rate 1.0
 
-# Либо воспользуйтесь скриптами (linux) для поднятия venv 
+# Либо воспользуйтесь скриптами (linux) для поднятия venv и запуска 
 script/setup
 script/run
+# Или с ключами
+script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
 
 # в HA добавьте службу в интеграции Wyoming Protocol [IP и 10200, если порт не назначен ключем]
 # Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
 
 ```
+#### Опционально добавляем поддержку стримминга через интеграцию, полезно для работы с LLM.
+https://github.com/mitrokun/streaming_tts_proxy
 #### CUDA (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
 Если есть ошибки при запуске, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
+
+
 
 ---
 
