@@ -113,8 +113,10 @@ class SpeechTTS:
         text = self._emoji_pattern.sub(r'', text)
         text = text.translate(self._translation_table)
         text = text.replace('…', '...')
+        # Разделяем буквы и цифры пробелом
         text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(\d)', r'\1 \2', text)
-        text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)
+        text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)        
+        # Нормализуем пробелы и переносы строк
         text = text.replace('\n', ' ').replace('\t', ' ')
         text = re.sub(r'\s+', ' ', text).strip()
         
