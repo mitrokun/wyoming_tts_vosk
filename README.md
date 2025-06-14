@@ -5,7 +5,7 @@
 - Пять русских голосов. 3f/2m
  
 Работа с числами и английскими словами максимально упрощенная (смотрите speech_tts.py), лишь бы воск не мычал.
-Синтезатор негативно реагирует на разные символы, поэтому всё вычищено. Плюсом перед гласной можно указать ударение.
+Синтезатор негативно реагирует на разные символы, поэтому всё вычищено. Знаком `+` перед гласной можно указать ударение.
 Лучше сразу делайте правильный системный промт для LLM, а в шаблонах можно использовать [интеграцию](https://github.com/AlexxIT/MorphNumbers) AlexxIT
 ```
 git clone https://github.com/mitrokun/wyoming_tts_vosk.git
@@ -22,10 +22,11 @@ script/run
 # Или с ключами
 script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
 
-# Используется 0.7 версия модели, она сильно быстрее, чем 0.8. Измените, если требуется.
+# Используется 0.7 версия модели, она сильно быстрее, чем 0.8.
+# Если требуется, используйте --vosk-model-name vosk-model-tts-ru-0.8-multi
 
 ```
-В в HA добавьте службу в интеграции Wyoming Protocol [IP и 10205, если порт не назначен ключем]
+В в HA добавьте службу в интеграции Wyoming Protocol [`IP хоста` и `10205`, если порт не назначен ключем]
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
 
