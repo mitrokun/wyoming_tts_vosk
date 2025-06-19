@@ -44,7 +44,7 @@ class SpeechTTS:
         flags=re.UNICODE
     )
 
-    _chars_to_delete_for_translate = "=#$“”„«»*\"‘’‚‹›'"
+    _chars_to_delete_for_translate = "=#$“”„«»<>*\"‘’‚‹›'/"
     _map_1_to_1_from_for_translate = "—–−\xa0"
     _map_1_to_1_to_for_translate   = "--- " 
     
