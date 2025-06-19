@@ -10,7 +10,6 @@ from vosk_tts import Model, Synth
 
 log = logging.getLogger(__name__)
 
-# Параметры аудио по умолчанию для Vosk TTS моделей
 DEFAULT_SAMPLE_RATE = 22050
 DEFAULT_SAMPLE_WIDTH = 2  # 16 бит = 2 байта
 DEFAULT_CHANNELS = 1      # Моно
@@ -53,6 +52,10 @@ class SpeechTTS:
         _map_1_to_1_to_for_translate,
         _chars_to_delete_for_translate
     )
+
+    # Паттерн для финальной проверки, которая удалит все, что не соответствует паттерну, иначе будет ошибка синтеза
+    _FINAL_CLEANUP_PATTERN = re.compile(r'[^а-яА-ЯёЁ+?!., ]')
+
 
     def __init__(self, vosk_model_name: str) -> None:
         log.info(f"Initializing Vosk Speech TTS and preloading model: {vosk_model_name}")
@@ -113,10 +116,8 @@ class SpeechTTS:
         text = self._emoji_pattern.sub(r'', text)
         text = text.translate(self._translation_table)
         text = text.replace('…', '...')
-        # Разделяем буквы и цифры пробелом
         text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(\d)', r'\1 \2', text)
-        text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)        
-        # Нормализуем пробелы и переносы строк
+        text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)
         text = text.replace('\n', ' ').replace('\t', ' ')
         text = re.sub(r'\s+', ' ', text).strip()
         
@@ -140,6 +141,15 @@ class SpeechTTS:
             return ''.join(ENGLISH_TO_RUSSIAN.get(c, c) for c in word)
         return re.sub(r'\b[a-zA-Z]+\b', replace_english, text)
 
+    def _cleanup_final_text(self, text: str) -> str:
+        """
+        Удаляет из текста все символы, кроме разрешенных, заменяя их на пробелы.
+        Разрешенные символы: русские буквы (включая ё/Ё), пробелы и знак '+'.
+        """
+        # Заменяем все неразрешенные символы на пробел
+        cleaned_text = self._FINAL_CLEANUP_PATTERN.sub(' ', text)
+        return cleaned_text
+
     async def synthesize(self, text: str, speaker_id: int, speech_rate: float = 1.0) -> bytes | None:
         log.debug(f"Requested TTS. Speaker: {speaker_id}, Rate: {speech_rate}, Original text: [{text[:100]}...]")
 
@@ -159,6 +169,9 @@ class SpeechTTS:
         # Этап 4: Английские слова в русскую транслитерацию
         normalized_text = self._normalize_english(normalized_text)
         
+        # Этап 5: Финальная очистка от неразрешенных символов
+        normalized_text = self._cleanup_final_text(normalized_text)
+
         # Финальная чистка пробелов, которые могли добавиться на предыдущих шагах
         normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
 
