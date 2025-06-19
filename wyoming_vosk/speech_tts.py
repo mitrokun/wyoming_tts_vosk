@@ -157,7 +157,7 @@ class SpeechTTS:
             log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
             speech_rate = max(0.5, min(2.0, speech_rate))
 
-        # Этап 1: "Умная" обработка процентов (должна идти до общей нормализации)
+        # Этап 1: Обработка процентов
         normalized_text = self._normalize_percentages(text)
         
         # Этап 2: Базовая нормализация символов, пробелов, эмодзи
