@@ -53,24 +53,24 @@ class SpeechTTS:
         _chars_to_delete_for_translate
     )
 
-    # Паттерн для финальной проверки, которая удалит все, что не соответствует паттерну, иначе будет ошибка синтеза
+    # Паттерн для финальной очистки
     _FINAL_CLEANUP_PATTERN = re.compile(r'[^а-яА-ЯёЁ+?!., ]')
 
 
     def __init__(self, vosk_model_name: str) -> None:
-        log.info(f"Initializing Vosk Speech TTS and preloading model: {vosk_model_name}")
+        log.debug(f"Initializing Vosk Speech TTS and preloading model: {vosk_model_name}")
         self.vosk_model_name = vosk_model_name
         self._lock = asyncio.Lock()
         self.sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_width = DEFAULT_SAMPLE_WIDTH
         self.channels = DEFAULT_CHANNELS
-        log.info(f"Assuming audio parameters: Rate={self.sample_rate}, Width={self.sample_width}, Channels={self.channels}")
+        log.debug(f"Assuming audio parameters: Rate={self.sample_rate}, Width={self.sample_width}, Channels={self.channels}")
 
         try:
             self.model = Model(model_name=self.vosk_model_name)
-            log.info(f"Vosk model '{self.vosk_model_name}' loaded successfully.")
+            log.debug(f"Vosk model '{self.vosk_model_name}' loaded successfully.")
             self.synth = Synth(self.model)
-            log.info("Vosk Synth initialized successfully.")
+            log.debug("Vosk Synth initialized successfully.")
         except Exception as e:
             log.error(f"Failed to preload Vosk model '{self.vosk_model_name}' or initialize Synth: {e}", exc_info=True)
             raise RuntimeError(f"Failed to initialize Vosk TTS: {e}") from e
@@ -115,7 +115,8 @@ class SpeechTTS:
         
         text = self._emoji_pattern.sub(r'', text)
         text = text.translate(self._translation_table)
-        text = text.replace('…', '...')
+        text = text.replace('…', '.')
+        text = re.sub(r':(?!\d)', ',', text)
         text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(\d)', r'\1 \2', text)
         text = re.sub(r'(\d)([a-zA-Zа-яА-ЯёЁ])', r'\1 \2', text)
         text = text.replace('\n', ' ').replace('\t', ' ')
@@ -157,7 +158,7 @@ class SpeechTTS:
             log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
             speech_rate = max(0.5, min(2.0, speech_rate))
 
-        # Этап 1: Обработка процентов
+        # Этап 1: "Умная" обработка процентов
         normalized_text = self._normalize_percentages(text)
         
         # Этап 2: Базовая нормализация символов, пробелов, эмодзи
@@ -196,7 +197,7 @@ class SpeechTTS:
                 log.error(f"Unexpected return type from synth_audio: {type(audio_data)}. Expected bytes or object with .tobytes()")
                 return None
 
-            log.info(f'Vosk synthesis complete. Speaker {speaker_id}, Rate: {speech_rate}, Audio length: {len(audio_bytes)} bytes')
+            log.debug(f'Vosk synthesis complete. Speaker {speaker_id}, Rate: {speech_rate}, Audio length: {len(audio_bytes)} bytes')
             return audio_bytes
 
         except AttributeError as e:

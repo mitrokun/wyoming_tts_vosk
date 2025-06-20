@@ -15,15 +15,15 @@ from wyoming.error import Error
 from .handler import SpeechEventHandler
 from .speech_tts import SpeechTTS
 
+# Получаем логгер именно для этого модуля.
 log = logging.getLogger(__name__)
-logging.getLogger('vosk_tts').setLevel(logging.WARNING)
 
 # --- Константы ---
 DEFAULT_VOSK_MODEL_NAME = "vosk-model-tts-ru-0.7-multi"
 DEFAULT_VOSK_SPEAKER_IDS = "0,1,2,3,4"
 DEFAULT_SPEAKER_ID = 3
 DEFAULT_SPEECH_RATE = 1.0
-MODEL_LANGUAGE = "ru"
+MODEL_LANGUAGE = "ru-RU"
 DEFAULT_VOICE_VERSION = "1.1"
 VOSK_ATTRIBUTION_NAME = "Vosk"
 VOSK_ATTRIBUTION_URL = "https://alphacephei.com/vosk/"
@@ -31,7 +31,6 @@ PROGRAM_NAME = "vosk-tts-wyoming"
 PROGRAM_DESCRIPTION = "Wyoming server for Vosk TTS"
 PROGRAM_VERSION = "1.1"
 
-# Ключ: числовой ID спикера. Значение: (Описание для пользователя, Часть имени для Wyoming)
 VOICE_MAP = {
     0: ("Female 01", "female_01"),
     1: ("Female 02", "female_02"),
@@ -41,10 +40,14 @@ VOICE_MAP = {
 }
 
 async def main() -> None:
-    logging.basicConfig(level=os.getenv("LOGLEVEL", "INFO"))
     parser = ArgumentParser()
     parser.add_argument(
         "--uri", default="tcp://0.0.0.0:10200", help="unix:// or tcp://"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging for detailed output.",
     )
     parser.add_argument("--samples-per-chunk", type=int, default=1024)
     parser.add_argument(
@@ -70,6 +73,35 @@ async def main() -> None:
         help=f"Default speech rate (speed) for synthesis. Default: {DEFAULT_SPEECH_RATE}"
     )
     args = parser.parse_args()
+
+    if args.debug:
+        # В режиме отладки мы используем basicConfig, чтобы поймать ВСЕ сообщения,
+        # включая сообщения от сторонних библиотек (vosk-tts).
+        logging.basicConfig(level=logging.DEBUG)
+        log.info("Debug logging enabled.")
+    else:
+        # В обычном режиме мы настраиваем ТОЛЬКО логгер нашего приложения,
+        # чтобы не видеть INFO-сообщения от библиотек, которые пишут в root.
+        log.setLevel(logging.INFO)
+        
+        # Создаем обработчик, который будет выводить логи в консоль
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        
+        # Создаем форматтер для красивого вывода
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        
+        # Добавляем обработчик к нашему логгеру
+        log.addHandler(handler)
+
+        # Важно: отключаем передачу сообщений от нашего логгера "вверх" к root.
+        # Это дает нам полный контроль над выводом наших сообщений.
+        log.propagate = False
+        log.info("Log level set to INFO.")
+
 
     # --- Обработка аргументов Vosk ---
     try:
@@ -101,7 +133,6 @@ async def main() -> None:
         sys.exit(1)
 
     # --- Подготовка информации Wyoming ---
-    
     voices = []
     voice_to_speaker_map = {}
 

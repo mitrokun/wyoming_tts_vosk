@@ -2,8 +2,6 @@
 
 import logging
 import math
-# import os # Больше не нужен для unlink
-# import wave # Больше не нужен для чтения файла
 import contextlib
 import asyncio
 
@@ -26,19 +24,21 @@ class SpeechEventHandler(AsyncEventHandler):
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         *,
-        speech_tts: SpeechTTS, # Принимаем предзагруженный экземпляр
+        speech_tts: SpeechTTS,
         voice_to_speaker_map: dict,
         default_speaker_id: int,
+        default_speech_rate: float,  # Добавляем параметр
         **kwargs
     ) -> None:
         """Инициализация."""
         super().__init__(reader, writer)
         self.cli_args = cli_args
         self.wyoming_info_event = wyoming_info.event()
-        self.speech_tts = speech_tts # Сохраняем общий экземпляр
+        self.speech_tts = speech_tts
         self.voice_to_speaker_map = voice_to_speaker_map
         self.default_speaker_id = default_speaker_id
-        log.info(f"Handler initialized for new connection. Using shared TTS instance. Default speaker ID: {self.default_speaker_id}")
+        self.default_speech_rate = default_speech_rate
+        log.debug(f"Handler initialized for new connection. Using shared TTS instance. Default speaker ID: {self.default_speaker_id}, Default speech rate: {self.default_speech_rate}")
         log.debug(f"Voice to speaker map: {self.voice_to_speaker_map}")
 
     async def handle_event(self, event: Event) -> bool:
@@ -56,7 +56,8 @@ class SpeechEventHandler(AsyncEventHandler):
                 return True
 
             requested_voice_name = synthesize.voice.name if synthesize.voice else None
-            speaker_id = self.default_speaker_id # Начинаем с дефолтного
+            speaker_id = self.default_speaker_id
+            speech_rate = self.default_speech_rate  # Используем значение по умолчанию
 
             if requested_voice_name:
                 found_speaker_id = self.voice_to_speaker_map.get(requested_voice_name)
@@ -65,36 +66,39 @@ class SpeechEventHandler(AsyncEventHandler):
                     log.debug(f"Using requested speaker ID {speaker_id} for voice '{requested_voice_name}'")
                 else:
                     log.warning(f"Requested voice '{requested_voice_name}' not found. Using default ID {self.default_speaker_id}.")
-            else:
-                log.debug(f"No voice requested. Using default speaker ID {self.default_speaker_id}.")
 
-            log.info(f"Processing in-memory synthesis request: speaker_id={speaker_id}, text='{synthesize.text[:50]}...'")
+            # Проверяем, указан ли speech_rate в запросе
+            if hasattr(synthesize, 'speech_rate') and synthesize.speech_rate is not None:
+                speech_rate = synthesize.speech_rate
+                log.debug(f"Using requested speech rate: {speech_rate}")
+            else:
+                log.debug(f"No speech rate requested. Using default speech rate: {self.default_speech_rate}")
+
+            log.debug(f"Processing in-memory synthesis request: speaker_id={speaker_id}, speech_rate={speech_rate}, text='{synthesize.text[:50]}...'")
             text = " ".join(synthesize.text.strip().splitlines())
 
             # Получаем байты аудио из памяти
             audio_bytes = await self.speech_tts.synthesize(
                 text=text,
-                speaker_id=speaker_id
+                speaker_id=speaker_id,
+                speech_rate=speech_rate
             )
 
             if audio_bytes is None:
-                log.error(f"In-memory text synthesis failed for speaker {speaker_id}, text: {text[:50]}...")
+                log.error(f"In-memory text synthesis failed for speaker {speaker_id}, speech_rate: {speech_rate}, text: {text[:50]}...")
                 try:
                     await self.write_event(Error(text=f"Vosk TTS in-memory synthesis failed for speaker {speaker_id}").event())
                 except Exception as e:
                     log.error(f"Failed to send Error event to client: {e}")
-                return True # Продолжаем слушать
+                return True
 
-            # Отправляем аудио клиенту
             try:
-                # Получаем параметры аудио из объекта speech_tts
                 rate = self.speech_tts.sample_rate
                 width = self.speech_tts.sample_width
                 channels = self.speech_tts.channels
 
                 log.debug(f"Streaming in-memory audio: rate={rate}, width={width}, channels={channels}, size={len(audio_bytes)} bytes")
 
-                # Отправляем AudioStart
                 await self.write_event(
                     AudioStart(
                         rate=rate,
@@ -103,9 +107,7 @@ class SpeechEventHandler(AsyncEventHandler):
                     ).event(),
                 )
 
-                # Разбиваем байтовый массив на чанки
                 bytes_per_sample = width * channels
-                # Проверяем, что bytes_per_sample не ноль, чтобы избежать деления на ноль
                 if bytes_per_sample == 0:
                     log.error("Error: bytes_per_sample is zero. Check audio parameters.")
                     await self.write_event(Error(text="Internal server error: invalid audio parameters").event())
@@ -115,7 +117,6 @@ class SpeechEventHandler(AsyncEventHandler):
                 num_chunks = math.ceil(len(audio_bytes) / bytes_per_chunk) if bytes_per_chunk > 0 else 0
                 log.debug(f"Chunk size: {bytes_per_chunk}, num chunks: {num_chunks}")
 
-                # Отправляем чанки
                 if bytes_per_chunk > 0:
                     for i in range(num_chunks):
                         offset = i * bytes_per_chunk
@@ -129,35 +130,28 @@ class SpeechEventHandler(AsyncEventHandler):
                             ).event(),
                         )
                 elif len(audio_bytes) > 0:
-                     # Если чанки нулевого размера, но есть данные, отправляем всё одним куском
-                     log.warning("Chunk size is zero, sending all audio in one chunk.")
-                     await self.write_event(
-                         AudioChunk(
-                             audio=audio_bytes,
-                             rate=rate,
-                             width=width,
-                             channels=channels,
-                         ).event(),
-                     )
+                    log.warning("Chunk size is zero, sending all audio in one chunk.")
+                    await self.write_event(
+                        AudioChunk(
+                            audio=audio_bytes,
+                            rate=rate,
+                            width=width,
+                            channels=channels,
+                        ).event(),
+                    )
 
-
-                # Отправляем AudioStop
                 await self.write_event(AudioStop().event())
-                log.info(f"Completed in-memory synthesis request for speaker {speaker_id}, text: {text[:50]}...")
+                log.debug(f"Completed in-memory synthesis request for speaker {speaker_id}, speech_rate: {speech_rate}, text: {text[:50]}...")
 
             except Exception as e:
                 log.error(f"Error streaming in-memory audio: {e}", exc_info=True)
-                # Пытаемся отправить ошибку, если еще не начали стримить
                 try:
                     await self.write_event(Error(text=f"Error streaming synthesized audio").event())
                 except Exception as e_send:
                     log.error(f"Failed to send Error event to client after streaming failure: {e_send}")
 
-            # Блок finally с os.unlink больше не нужен
+            return True
 
-            return True # Готовы к следующему запросу
-
-        # Обработка других типов событий
         log.warning("Unexpected event type: %s", event.type)
         return True
 
