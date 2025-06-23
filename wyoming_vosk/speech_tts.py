@@ -10,6 +10,7 @@ from vosk_tts import Model, Synth
 
 log = logging.getLogger(__name__)
 
+# Параметры аудио по умолчанию для Vosk TTS моделей
 DEFAULT_SAMPLE_RATE = 22050
 DEFAULT_SAMPLE_WIDTH = 2  # 16 бит = 2 байта
 DEFAULT_CHANNELS = 1      # Моно
@@ -53,7 +54,7 @@ class SpeechTTS:
         _chars_to_delete_for_translate
     )
 
-    # Паттерн для финальной очистки
+    # Паттерн для финальной очистки: ищет все, что НЕ является русской буквой, '+', пробелом или базовыми знаками препинания.
     _FINAL_CLEANUP_PATTERN = re.compile(r'[^а-яА-ЯёЁ+?!., ]')
 
 
@@ -75,36 +76,42 @@ class SpeechTTS:
             log.error(f"Failed to preload Vosk model '{self.vosk_model_name}' or initialize Synth: {e}", exc_info=True)
             raise RuntimeError(f"Failed to initialize Vosk TTS: {e}") from e
 
-    def _choose_percent_form(self, number: int) -> str:
+    def _choose_percent_form(self, number_str: str) -> str:
         """Выбирает правильную форму слова 'процент' в зависимости от числа."""
-        if 10 < number % 100 < 20:
-            return "процентов"
-        
-        last_digit = number % 10
-        if last_digit == 1:
-            return "процент"
-        if last_digit in [2, 3, 4]:
+        # Если число дробное, всегда используется "процента"
+        if '.' in number_str or ',' in number_str:
             return "процента"
-        
-        return "процентов"
+
+        # Если число целое, применяем старые правила
+        try:
+            number = int(number_str)
+            if 10 < number % 100 < 20:
+                return "процентов"
+            
+            last_digit = number % 10
+            if last_digit == 1:
+                return "процент"
+            if last_digit in [2, 3, 4]:
+                return "процента"
+            
+            return "процентов"
+        except (ValueError, OverflowError):
+            # Fallback для очень больших чисел или некорректных строк
+            return "процентов"
 
     def _normalize_percentages(self, text: str) -> str:
-        """Находит и заменяет конструкции вида '123%' и одиночные '%'."""
+        """Находит и заменяет конструкции вида '12.5%' и одиночные '%'."""
         
         def replace_match(match):
-            number_str = match.group(1)
+            number_str_clean = match.group(1).replace(',', '.')
             try:
-                number_int = int(number_str)
-                number_words = num2words(number_int, lang='ru')
-                percent_word = self._choose_percent_form(number_int)
-                return f" {number_words} {percent_word} "
+                # Передаем строку, чтобы _choose_percent_form сама определила тип числа
+                percent_word = self._choose_percent_form(number_str_clean)
+                return f" {number_str_clean} {percent_word} "
             except (ValueError, OverflowError):
-                return f" {number_str} процентов "
+                return f" {number_str_clean} процентов "
 
-        # Шаг 1: Обрабатываем случаи "число + %"
-        processed_text = re.sub(r'(\d+)\s*\%', replace_match, text)
-
-        # Шаг 2: Обрабатываем оставшиеся одиночные символы '%', заменяя их на "процентов".
+        processed_text = re.sub(r'(\d+([.,]\d+)?)\s*\%', replace_match, text)
         processed_text = processed_text.replace('%', ' процентов ')
         
         return processed_text
@@ -125,16 +132,60 @@ class SpeechTTS:
         return text
 
     def _normalize_numbers(self, text: str) -> str:
+        """
+        Преобразует числа в слова с прагматичной обработкой float:
+        - 12.5    -> "двенадцать и пять"
+        - 12.55   -> "двенадцать и пятьдесят пять сотых"
+        - 12.555  -> "двенадцать и пятьсот пятьдесят пять тысячных"
+        - 12.5555 -> "двенадцать точка пять тысяч пятьсот пятьдесят пять"
+        """
         def replace_number(match):
-            num = match.group(0)
+            num_str = match.group(0).replace(',', '.')
             try:
-                if num.isdigit():
-                    return num2words(int(num), lang='ru')
-                return num 
-            except (ValueError, OverflowError):
-                log.warning(f"Could not normalize number: {num}")
-                return num
-        return re.sub(r'\b\d+\b', replace_number, text)
+                if '.' in num_str:
+                    parts = num_str.split('.')
+                    integer_part_str = parts[0]
+                    fractional_part_str = parts[1]
+
+                    if not integer_part_str or not fractional_part_str:
+                        valid_num_str = num_str.replace('.', '')
+                        return num2words(int(valid_num_str), lang='ru') if valid_num_str.isdigit() else num_str
+
+                    integer_part_val = int(integer_part_str)
+                    fractional_part_val = int(fractional_part_str)
+                    fractional_len = len(fractional_part_str)
+                    
+                    integer_words = num2words(integer_part_val, lang='ru')
+                    fractional_words = num2words(fractional_part_val, lang='ru')
+
+                    if fractional_len == 1:
+                        return f"{integer_words} и {fractional_words}"
+
+                    if fractional_part_val % 10 == 1 and fractional_part_val % 100 != 11:
+                        if fractional_words.endswith("один"): fractional_words = fractional_words[:-4] + "одна"
+                    if fractional_part_val % 10 == 2 and fractional_part_val % 100 != 12:
+                        if fractional_words.endswith("два"): fractional_words = fractional_words[:-3] + "две"
+
+                    if fractional_len == 2:
+                        return f"{integer_words} и {fractional_words} сотых"
+                    
+                    if fractional_len == 3:
+                        return f"{integer_words} и {fractional_words} тысячных"
+
+                    # Случай 4 (Fallback): 4+ знаков. Произносим через слово "точка".
+                    log.debug(
+                        f"Number '{num_str}' has {fractional_len} decimal places (>3). "
+                        f"Pronouncing with 'точка' as a separator."
+                    )
+                    return f"{integer_words} точка {fractional_words}"
+                else:
+                    return num2words(int(num_str), lang='ru')
+                    
+            except (ValueError, OverflowError) as e:
+                log.warning(f"Could not normalize number '{num_str}': {e}")
+                return num_str
+
+        return re.sub(r'\b\d+([.,]\d+)?\b', replace_number, text)
 
     def _normalize_english(self, text: str) -> str:
         def replace_english(match):
@@ -158,7 +209,7 @@ class SpeechTTS:
             log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
             speech_rate = max(0.5, min(2.0, speech_rate))
 
-        # Этап 1: "Умная" обработка процентов
+        # Этап 1: "Умная" обработка процентов (должна идти до общей нормализации)
         normalized_text = self._normalize_percentages(text)
         
         # Этап 2: Базовая нормализация символов, пробелов, эмодзи
