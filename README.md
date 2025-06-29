@@ -20,7 +20,7 @@ python -m wyoming_vosk --uri tcp://0.0.0.0:10205 --speech-rate 1.0
 script/setup
 script/run
 # Или с ключами
-script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
+script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5 --streaming
 
 # Используется 0.7 версия модели, она сильно быстрее, чем 0.8.
 # Если требуется, используйте --vosk-model-name vosk-model-tts-ru-0.8-multi
