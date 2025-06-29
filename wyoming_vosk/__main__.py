@@ -1,5 +1,3 @@
-# --- START OF FILE __main__.py ---
-
 import os
 from argparse import ArgumentParser
 import asyncio
@@ -8,14 +6,12 @@ import logging
 import sys
 from functools import partial
 
-from wyoming.info import Attribution, Info, TtsProgram, TtsVoice, Describe
+from wyoming.info import Attribution, Info, TtsProgram, TtsVoice
 from wyoming.server import AsyncServer
-from wyoming.error import Error
 
 from .handler import SpeechEventHandler
 from .speech_tts import SpeechTTS
 
-# Получаем логгер именно для этого модуля.
 log = logging.getLogger(__name__)
 
 # --- Константы ---
@@ -29,7 +25,7 @@ VOSK_ATTRIBUTION_NAME = "Vosk"
 VOSK_ATTRIBUTION_URL = "https://alphacephei.com/vosk/"
 PROGRAM_NAME = "vosk-tts-wyoming"
 PROGRAM_DESCRIPTION = "Wyoming server for Vosk TTS"
-PROGRAM_VERSION = "1.1"
+PROGRAM_VERSION = "1.2"
 
 VOICE_MAP = {
     0: ("Female 01", "female_01"),
@@ -72,38 +68,30 @@ async def main() -> None:
         default=DEFAULT_SPEECH_RATE,
         help=f"Default speech rate (speed) for synthesis. Default: {DEFAULT_SPEECH_RATE}"
     )
+    parser.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Enable audio streaming on sentence boundaries.",
+    )
     args = parser.parse_args()
 
+    # Настройка логирования
     if args.debug:
-        # В режиме отладки мы используем basicConfig, чтобы поймать ВСЕ сообщения,
-        # включая сообщения от сторонних библиотек (vosk-tts).
         logging.basicConfig(level=logging.DEBUG)
         log.info("Debug logging enabled.")
     else:
-        # В обычном режиме мы настраиваем ТОЛЬКО логгер нашего приложения,
-        # чтобы не видеть INFO-сообщения от библиотек, которые пишут в root.
         log.setLevel(logging.INFO)
-        
-        # Создаем обработчик, который будет выводить логи в консоль
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        
-        # Создаем форматтер для красивого вывода
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
-        
-        # Добавляем обработчик к нашему логгеру
         log.addHandler(handler)
-
-        # Важно: отключаем передачу сообщений от нашего логгера "вверх" к root.
-        # Это дает нам полный контроль над выводом наших сообщений.
         log.propagate = False
         log.info("Log level set to INFO.")
 
-
-    # --- Обработка аргументов Vosk ---
+    # Обработка и валидация аргументов Vosk
     try:
         speaker_ids = [int(sid.strip()) for sid in args.vosk_speaker_ids.split(',')]
         if not speaker_ids:
@@ -123,7 +111,7 @@ async def main() -> None:
         log.error(f"Invalid arguments: {e}")
         sys.exit(1)
 
-    # --- Предзагрузка модели Vosk ---
+    # Предзагрузка модели Vosk
     try:
         log.info("Attempting to preload Vosk model...")
         speech_tts_instance = SpeechTTS(vosk_model_name=args.vosk_model_name)
@@ -132,7 +120,7 @@ async def main() -> None:
         log.critical(f"Failed to preload Vosk model: {e}", exc_info=True)
         sys.exit(1)
 
-    # --- Подготовка информации Wyoming ---
+    # Подготовка информации для Wyoming
     voices = []
     voice_to_speaker_map = {}
 
@@ -169,23 +157,24 @@ async def main() -> None:
                 ),
                 installed=True,
                 version=PROGRAM_VERSION,
-                voices=voices
+                voices=voices,
+                supports_synthesize_streaming=args.streaming,
             )
         ]
     )
 
-    # --- Подготовка фабрики обработчиков ---
+    # Подготовка фабрики обработчиков событий
     handler_factory = partial(
         SpeechEventHandler,
         wyoming_info,
         args,
-        speech_tts=speech_tts_instance,
-        voice_to_speaker_map=voice_to_speaker_map,
-        default_speaker_id=args.default_speaker_id,
-        default_speech_rate=args.speech_rate,
+        speech_tts_instance,
+        voice_to_speaker_map,
+        args.default_speaker_id,
+        args.speech_rate,
     )
 
-    # --- Запуск сервера ---
+    # Запуск сервера
     server = AsyncServer.from_uri(args.uri)
     log.info(f"Server ready and listening at {args.uri}")
     await server.run(handler_factory)
@@ -196,5 +185,3 @@ if __name__ == "__main__":
             asyncio.run(main())
     finally:
         log.info("Server shutting down.")
-
-# --- END OF FILE __main__.py ---

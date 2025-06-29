@@ -1,5 +1,3 @@
-# --- START OF FILE speech_tts.py ---
-
 import logging
 import asyncio
 import contextlib
@@ -54,7 +52,7 @@ class SpeechTTS:
         _chars_to_delete_for_translate
     )
 
-    # Паттерн для финальной очистки: ищет все, что НЕ является русской буквой, '+', пробелом или базовыми знаками препинания.
+    # Паттерн для финальной очистки
     _FINAL_CLEANUP_PATTERN = re.compile(r'[^а-яА-ЯёЁ+?!., ]')
 
 
@@ -209,7 +207,7 @@ class SpeechTTS:
             log.warning(f"Speech rate {speech_rate} out of range [0.5, 2.0]. Clamping.")
             speech_rate = max(0.5, min(2.0, speech_rate))
 
-        # Этап 1: "Умная" обработка процентов (должна идти до общей нормализации)
+        # Этап 1: "Умная" обработка процентов
         normalized_text = self._normalize_percentages(text)
         
         # Этап 2: Базовая нормализация символов, пробелов, эмодзи
