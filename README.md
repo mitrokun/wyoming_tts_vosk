@@ -12,7 +12,7 @@ git clone https://github.com/mitrokun/wyoming_tts_vosk.git
 cd wyoming_tts_vosk
 
 # Установите требуемые библиотеки вручную. Простой путь для Win
-pip install vosk-tts wyoming num2words numpy
+pip install vosk-tts wyoming num2words numpy regex
 # Запустите сервер (здесь пример с кастомным портом)
 python -m wyoming_vosk --uri tcp://0.0.0.0:10205 --speech-rate 1.0
 
