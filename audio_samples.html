@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аудиосэмплы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .audio-container {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        audio {
+            width: 100%;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>vosk-model-tts-ru-0.10-multi</h1>
+    <script>
+        for (let i = 0; i <= 56; i++) {
+            const num = i.toString().padStart(2, '0');
+            document.write(`
+                <div class="audio-container">
+                    <p>Voice ${num}</p>
+                    <audio controls>
+                        <source src="vosk_tts_generated_voices/voice_${num}.ogg" type="audio/ogg">
+                        Ваш браузер не поддерживает аудио.
+                    </audio>
+                </div>
+            `);
+        }
+    </script>
+</body>
+</html>
