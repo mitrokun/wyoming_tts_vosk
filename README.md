@@ -22,10 +22,16 @@ script/run
 # Или с ключами
 script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
 
-# Используется 0.7 версия модели, она сильно быстрее, чем 0.8.
-# Если требуется, используйте --vosk-model-name vosk-model-tts-ru-0.8-multi
-
+# Используется 0.7 версия модели, она сильно быстрее последующих версий
+# Если требуется, используйте --vosk-model-name vosk-model-tts-ru-0.9-multi
 ```
+Версия 0.10 содержит 57 спикеров, но недоступна для автоматической загрузки.
+Требуется самостоятельно скачать [модель](https://alphacephei.com/vosk/models/vosk-model-tts-ru-0.10-multi.zip), после чего указать путь к каталогу
+```
+--vosk-model-path "D:\vosk-model-tts-ru-0.10-multi"
+```
+
+
 В в HA добавьте службу в интеграции Wyoming Protocol [`IP хоста` и `10205`, если порт не назначен ключем]
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
