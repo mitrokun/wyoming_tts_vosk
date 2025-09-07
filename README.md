@@ -34,14 +34,6 @@ script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
 
 В в HA добавьте службу в интеграции Wyoming Protocol [`IP хоста` и `10205`, если порт не назначен ключем]
 
-[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
-
-Дополнительно и/или альтернативно добавляем поддержку стримминга через [интеграцию](https://github.com/mitrokun/streaming_tts_proxy) альтернативного клиента. Полезно для работы с LLM.
-
-upd
-
-Есть тестовый [бранч](https://github.com/mitrokun/wyoming_tts_vosk/tree/streaming) с нативной поддержкой сервером стриминга, который представил в 2025.07. Вариант для тех, кому не требуется расширеный функционал предыдущей интеграции.
-
 #### CUDA (12.x) 
 Ставим пакет
 `pip install onnxruntime-gpu`
