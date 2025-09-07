@@ -33,6 +33,7 @@ script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5
 
 
 В в HA добавьте службу в интеграции Wyoming Protocol [`IP хоста` и `10205`, если порт не назначен ключем]
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
 
 #### CUDA (12.x) 
 Ставим пакет
