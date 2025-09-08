@@ -1,7 +1,6 @@
 vosk-tts
 wyoming
 num2words
-ruaccent==0.1.3
-regex
 numpy
+
 
