@@ -1,4 +1,6 @@
 vosk-tts
 wyoming
 num2words
+ruaccent
+regex
 numpy
