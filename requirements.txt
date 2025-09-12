@@ -1,6 +1,7 @@
 vosk-tts
 wyoming
+eng_to_ipa
 num2words
+ruaccent
+regex
 numpy
-
-
