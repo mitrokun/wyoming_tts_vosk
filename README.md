@@ -41,9 +41,12 @@ or
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
 
 #### CUDA (12.x) 
+Работоспособность тестировалась только на windows.
+
 Ставим пакет
 `pip install onnxruntime-gpu`
-Если есть ошибки при запуске, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN...
+Если есть ошибки при запуске, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN... 
+
 Возможность выбирать устройство обработки отстутвует в библиотеке vosk-tts, если обнаружен onnxruntime-gpu, то выполняться будет на gpu.
 Для поддержки onnxruntime для AMD потребуется модифицировать библиотеку vosk-tts. В теории должно сработать.
 
