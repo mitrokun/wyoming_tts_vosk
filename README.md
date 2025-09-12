@@ -32,6 +32,8 @@ script/run --uri tcp://0.0.0.0:10222 --speech-rate 1.5 --streaming
 Требуется самостоятельно скачать [модель](https://alphacephei.com/vosk/models/vosk-model-tts-ru-0.10-multi.zip), после чего указать путь к каталогу
 ```
 --vosk-model-path "D:\vosk-model-tts-ru-0.10-multi"
+or
+--vosk-model-path "/home/username/vosk-model-tts-ru-0.10-multi"
 ```
 
 
