@@ -39,8 +39,8 @@ sudo apt-mark hold libcudnn9-dev-cuda-12 libcudnn9-cuda-12
 
 ```bash
 # Добавляем пути в .bashrc для постоянной настройки
-echo 'export PATH=/usr/local/cuda-12.5/bin${PATH:+:${PATH}}' >> ~/.bashrc
-echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.5/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> ~/.bashrc
+echo 'export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> ~/.bashrc
 
 # Применяем изменения к текущей сессии терминала
 source ~/.bashrc
