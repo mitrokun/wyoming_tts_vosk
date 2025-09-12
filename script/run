@@ -33,7 +33,7 @@ if len(sys.argv) > 1:
     command.extend(user_args)
 else:
     # Если нет, используем аргументы по умолчанию
-    default_args = ["--uri", "tcp://0.0.0.0:10205", "--speech-rate", "1.0"]
+    default_args = ["--uri", "tcp://0.0.0.0:10205", "--speech-rate", "1.0", "--streaming"]
     print(f"Using default arguments: {' '.join(default_args)}")
     command.extend(default_args)
 
