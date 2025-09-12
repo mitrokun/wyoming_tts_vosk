@@ -40,7 +40,7 @@ VOICE_MAP_LEGACY = {
 async def main() -> None:
     parser = ArgumentParser()
     parser.add_argument(
-        "--uri", default="tcp://0.0.0.0:10200", help="unix:// or tcp://"
+        "--uri", default="tcp://0.0.0.0:10205", help="unix:// or tcp://"
     )
     parser.add_argument(
         "--debug",
