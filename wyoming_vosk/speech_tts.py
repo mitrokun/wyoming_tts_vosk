@@ -33,51 +33,69 @@ class _EnglishToRussianNormalizer:
 
     ENGLISH_EXCEPTIONS = {
         # Бренды и имена
-        "google": "гугл", "apple": "эпл", "microsoft": "микрософт",
+        "google": "гугл", "apple": "эпл", "microsoft": "майкрософт",
         "samsung": "самсунг", "toyota": "тойота", "volkswagen": "фольцваген",
         "coca": "кока", "cola": "кола", "pepsi": "пэпси", "whatsapp": "вотсап",
         "telegram": "телеграм", "youtube": "ютуб", "instagram": "инстаграм",
         "facebook": "фэйсбук", "twitter": "твиттер", "iphone": "айфон",
         "tesla": "тесла", "spacex": "спэйс икс", "amazon": "амазон",
-        "python": "пайтон", " AI": "эй ай", "news": "ньюс",
-
+        "python": "пайтон", "AI": "эй+ай", "api": "эйпиай","IT": "+ай т+и",
+        # Ё
+        "work": "ворк", "world": "ворлд", "bird": "бёрд",
+        "girl": "гёрл", "burn": "бёрн", "her": "хёр",
+        "early": "ёрли", "service": "сёрвис",
         # Служебные слова
         "a": "э", "the": "зе", "of": "оф", "and": "энд", "for": "фо",
         "to": "ту", "in": "ин", "on": "он", "is": "из",
         # Слова, где IPA-библиотека ошибается
-        "nice": "найс", "knowledge": "ноуледж", "new": "нью",
-        "video": "видео", "cake": "кейк", "choose": "чуз",
-        "hot": "хот", "https": "аштитипиэс", "ru": "ру", "com": "ком",
+        "knowledge": "ноуледж", "new": "нью",
+        "video": "видео", "ru": "ру", "com": "ком",
+        "hot": "хот", "https": "аштитипиэс", "http": "аштитипи",
     }
 
     IPA_TO_RUSSIAN_MAP = {
-        # Слоговые согласные
-        "əl": "л",
-        # Согласные (добавлены одиночные символы для ʧ и ʤ)
-        "p": "п", "b": "б", "t": "т", "d": "д", "k": "к", "g": "г",
-        "m": "м", "n": "н", "ŋ": "нг",
-        "tʃ": "ч", "ʧ": "ч",
-        "dʒ": "дж", "ʤ": "дж",
-        "f": "ф", "v": "в", "θ": "с", "ð": "з", "s": "с", "z": "з",
-        "ʃ": "ш", "ʒ": "ж", "h": "х", "w": "у", "j": "й", "r": "р", "l": "л",
-        # Монофтонги (добавлены ɑ, ɔ, i, o, u)
-        "i:": "и", "ɪ": "и", "i": "и",
-        "e": "е", "ɛ": "е", "æ": "э",
-        "ʌ": "а", "ə": "а", "a": "а", "ɑ": "а",
-        "u:": "у", "ʊ": "у", "u": "у",
-        "ɒ": "о", "ɔ:": "о", "ɔ": "о", "o": "о",
-        "ɑ:": "а", "ɜ:": "ё",
-        # Дифтонги
-        "eɪ": "эй", "aɪ": "ай", "ɔɪ": "ой", "aʊ": "ау", "oʊ": "оу", "əʊ": "оу",
-        "ɪə": "иэ", "eə": "еэ", "ʊə": "уэ",
-        # R-сочетания
-        "ər": "ер", "ɚ": "ер", "ɛr": "эр", "ɪr": "ир", "ɑr": "ар",
-        # Другие сочетания
-        "ju": "ю", "jʊ": "ю",
-        # Служебные символы
-        "ˈ": "", "ˌ": "", "*": "", "ː": ""
-    }
-    
+            # --- 1. Служебные символы (Удаляются) ---
+            "ˈ": "", "ˌ": "", "ː": "",
+
+            # --- 2. Согласные ---
+            # Простые
+            "p": "п", "b": "б", "t": "т", "d": "д", "k": "к", "g": "г",
+            "m": "м", "n": "н", "f": "ф", "v": "в", "s": "с", "z": "з",
+            "h": "х", "l": "л", "r": "р", "w": "в", "j": "й",
+            # Шипящие и аффрикаты
+            "ʃ": "ш", "ʒ": "ж",
+            "tʃ": "ч", "ʧ": "ч",   # Два варианта для "ч"
+            "dʒ": "дж", "ʤ": "дж", # Два варианта для "дж"
+            # Носовые и межзубные
+            "ŋ": "нг", "θ": "с", "ð": "з",
+
+            # --- 3. Гласные ---
+            "i": "и",     # see
+            "ɪ": "и",     # sit
+            "ɛ": "э",     # red
+            "æ": "э",     # cat
+            "ɑ": "а",     # star
+            "ɔ": "о",     # dog
+            "u": "у",     # food
+            "ʊ": "у",     # book
+            "ʌ": "а",     # fun
+            "ə": "э",     # about
+
+            # --- 4. R-окрашенные гласные ---
+            "ər": "эр",   # water
+            "ɚ": "эр",    # (синоним)
+
+            # --- 5. Дифтонги ---
+            "eɪ": "эй",   # say
+            "aɪ": "ай",   # my
+            "ɔɪ": "ой",   # boy
+            "aʊ": "ау",   # house
+            "oʊ": "оу",    # boat, home
+            "ɪə": "иэ",   # near
+            "eə": "еэ",   # hair
+            "ʊə": "уэ",   # tour
+        }
+
     def __init__(self):
         self._max_ipa_key_len = max(len(key) for key in self.IPA_TO_RUSSIAN_MAP.keys())
 
@@ -98,33 +116,41 @@ class _EnglishToRussianNormalizer:
         return result
 
     def _transliterate_word(self, match):
-        word = match.group(0).lower()
+        word_original = match.group(0) # 1. Получаем слово с оригинальным регистром
 
-        # Уровень 1: Проверка словаря исключений
-        if word in self.ENGLISH_EXCEPTIONS:
-            log.debug(f"Replacing '{word}' from exceptions dictionary -> '{self.ENGLISH_EXCEPTIONS[word]}'")
-            return self.ENGLISH_EXCEPTIONS[word]
+        # Уровень 1.1: Проверка на точное совпадение
+        # Это найдет 'AI', 'IT' и т.д.
+        if word_original in self.ENGLISH_EXCEPTIONS:
+            log.debug(f"Replacing '{word_original}' from exceptions (case-sensitive) -> '{self.ENGLISH_EXCEPTIONS[word_original]}'")
+            return self.ENGLISH_EXCEPTIONS[word_original]
+
+        # 2. Если точного совпадения нет, приводим к нижнему регистру
+        word_lower = word_original.lower()
+
+        # Уровень 1.2: Проверка словаря исключений в нижнем регистре
+        # Это найдет 'google', 'apple', 'work' и т.д., даже если они были написаны как 'Google'
+        if word_lower in self.ENGLISH_EXCEPTIONS:
+            log.debug(f"Replacing '{word_original}' (as '{word_lower}') from exceptions dictionary -> '{self.ENGLISH_EXCEPTIONS[word_lower]}'")
+            return self.ENGLISH_EXCEPTIONS[word_lower]
 
         # Уровень 2: Фонетическая транскрипция через IPA
         try:
-            ipa_transcription = ipa.convert(word)
+            ipa_transcription = ipa.convert(word_lower)
             ipa_transcription = re.sub(r'[/]', '', ipa_transcription).strip()
 
             if '*' in ipa_transcription:
                 raise ValueError("IPA conversion failed.")
 
             russian_phonetics = self._convert_ipa_to_russian(ipa_transcription)
-            
-            # Уровень 2.5 - Пост-обработка
             russian_phonetics = re.sub(r'йй', 'й', russian_phonetics)
             russian_phonetics = re.sub(r'([чшщждж])ь', r'\1', russian_phonetics)
 
-            log.debug(f"Phonetic replacement: '{word}' -> '{ipa_transcription}' -> '{russian_phonetics}'")
+            log.debug(f"Phonetic replacement: '{word_lower}' -> '{ipa_transcription}' -> '{russian_phonetics}'")
             return russian_phonetics
         except Exception:
             # Уровень 3: Если все сломалось, используем простой побуквенный транслит
-            log.warning(f"Could not get IPA for '{word}'. Falling back to simple transliteration.")
-            return ''.join(self.SIMPLE_ENGLISH_TO_RUSSIAN.get(c, c) for c in word)
+            log.warning(f"Could not get IPA for '{word_lower}'. Falling back to simple transliteration.")
+            return ''.join(self.SIMPLE_ENGLISH_TO_RUSSIAN.get(c, c) for c in word_lower)
 
     def normalize(self, text: str) -> str:
         """
@@ -169,6 +195,7 @@ class SpeechTTS:
         self.channels = DEFAULT_CHANNELS
         log.debug(f"Assuming audio parameters: Rate={self.sample_rate}, Width={self.sample_width}, Channels={self.channels}")
 
+        # <<< НОВОЕ: Инициализация нормализатора английского языка >>>
         self._eng_normalizer = _EnglishToRussianNormalizer()
 
         try:
@@ -208,6 +235,7 @@ class SpeechTTS:
             else:
                 log.warning("`use_accentizer` is True, but `ruaccent` library is not installed. Please run `pip install ruaccent`.")
     
+    # <<< ИЗМЕНЕНО: Метод теперь делегирует работу классу-нормализатору >>>
     def _normalize_english(self, text: str) -> str:
         return self._eng_normalizer.normalize(text)
         
