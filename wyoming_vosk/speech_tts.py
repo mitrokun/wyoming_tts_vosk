@@ -195,7 +195,6 @@ class SpeechTTS:
         self.channels = DEFAULT_CHANNELS
         log.debug(f"Assuming audio parameters: Rate={self.sample_rate}, Width={self.sample_width}, Channels={self.channels}")
 
-        # <<< НОВОЕ: Инициализация нормализатора английского языка >>>
         self._eng_normalizer = _EnglishToRussianNormalizer()
 
         try:
@@ -235,7 +234,6 @@ class SpeechTTS:
             else:
                 log.warning("`use_accentizer` is True, but `ruaccent` library is not installed. Please run `pip install ruaccent`.")
     
-    # <<< ИЗМЕНЕНО: Метод теперь делегирует работу классу-нормализатору >>>
     def _normalize_english(self, text: str) -> str:
         return self._eng_normalizer.normalize(text)
         
@@ -344,4 +342,5 @@ class SpeechTTS:
             return audio_bytes
         except Exception as e:
             log.error(f"Vosk TTS synthesis failed: {e}", exc_info=True)
+
             return None
