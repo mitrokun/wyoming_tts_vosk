@@ -6,10 +6,10 @@ from vosk_tts import Model, Synth
 import eng_to_ipa as ipa
 
 try:
-    from ruaccent import RUAccent
-    RUACCENT_AVAILABLE = True
+    from silero_stress import load_accentor
+    SILERO_STRESS_AVAILABLE = True
 except ImportError:
-    RUACCENT_AVAILABLE = False
+    SILERO_STRESS_AVAILABLE = False
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,8 @@ class _EnglishToRussianNormalizer:
         "telegram": "телеграм", "youtube": "ютуб", "instagram": "инстаграм",
         "facebook": "фэйсбук", "twitter": "твиттер", "iphone": "айфон",
         "tesla": "тесла", "spacex": "спэйс икс", "amazon": "амазон",
-        "python": "пайтон", "AI": "эй+ай", "api": "эйпиай","IT": "+ай т+и",
+        "python": "пайтон", "AI": "эй+ай", "api": "эйпиай",
+        "IT": "+ай т+и", "Wi-Fi": "вай фай",
         # Ё
         "work": "ворк", "world": "ворлд", "bird": "бёрд",
         "girl": "гёрл", "burn": "бёрн", "her": "хёр",
@@ -178,7 +179,7 @@ class SpeechTTS:
     )
     _FINAL_CLEANUP_PATTERN = re.compile(r'[^а-яА-ЯёЁ+?!., ]')
 
-    def __init__(self, vosk_model_name: str = None, vosk_model_path: str = None, use_accentizer: bool = False) -> None:
+    def __init__(self, vosk_model_name: str = None, vosk_model_path: str = None) -> None:
         if not vosk_model_name and not vosk_model_path:
             raise ValueError("Either 'vosk_model_name' or 'vosk_model_path' must be provided.")
             
@@ -220,19 +221,17 @@ class SpeechTTS:
             log.error(f"Failed to load Vosk model or initialize Synth: {e}", exc_info=True)
             raise RuntimeError(f"Failed to initialize Vosk TTS: {e}") from e
 
-        self.accentizer = None
-        if use_accentizer:
-            if RUACCENT_AVAILABLE:
-                log.info("Loading RUAccent model for automatic stress marking...")
-                try:
-                    self.accentizer = RUAccent()
-                    self.accentizer.load(omograph_model_size='turbo3.1', use_dictionary=True, tiny_mode=False)
-                    log.info("RUAccent model loaded successfully.")
-                except Exception as e:
-                    log.error(f"Failed to load RUAccent model: {e}", exc_info=True)
-                    self.accentizer = None
-            else:
-                log.warning("`use_accentizer` is True, but `ruaccent` library is not installed. Please run `pip install ruaccent`.")
+        self.accentor = None
+        if SILERO_STRESS_AVAILABLE:
+            log.info("Loading silero-stress model for automatic stress marking...")
+            try:
+                self.accentor = load_accentor()
+                log.info("silero-stress model loaded successfully.")
+            except Exception as e:
+                log.error(f"Failed to load silero-stress model: {e}", exc_info=True)
+                self.accentor = None
+        else:
+            log.warning("`silero-stress` library is not installed. Stress marking will be disabled. Please run `pip install silero-stress`.")
     
     def _normalize_english(self, text: str) -> str:
         return self._eng_normalizer.normalize(text)
@@ -247,6 +246,9 @@ class SpeechTTS:
             if last_digit in [2, 3, 4]: return "процента"
             return "процентов"
         except (ValueError, OverflowError): return "процентов"
+
+    def _fix_to_particle_stress(self, text: str) -> str:
+        return re.sub(r'([а-яА-ЯёЁ+]+)-то\b', r'\1то', text)
 
     def _normalize_percentages(self, text: str) -> str:
         def replace_match(match):
@@ -296,13 +298,13 @@ class SpeechTTS:
         return re.sub(r'\b\d+([.,]\d+)?\b', replace_number, text)
 
     def _add_accents(self, text: str) -> str:
-        if self.accentizer is None or '+' in text or not text or not text.strip(): return text
+        if self.accentor is None or '+' in text or not text or not text.strip(): return text
         try:
-            processed_text = self.accentizer.process_all(text)
-            log.debug(f"Accentizer processed text. Before: '{text[:50]}...'. After: '{processed_text[:50]}...'")
+            processed_text = self.accentor(text)
+            log.debug(f"Text after accentizer: '{processed_text[:80]}...'")
             return processed_text
         except Exception as e:
-            log.warning(f"RUAccent failed to process text: {e}")
+            log.warning(f"silero-stress failed to process text: {e}")
             return text
 
     def _cleanup_final_text(self, text: str) -> str:
@@ -313,12 +315,12 @@ class SpeechTTS:
         
         speech_rate = max(0.5, min(2.0, speech_rate))
         
-        # Конвейер нормализации текста
         normalized_text = self._normalize_percentages(text)
         normalized_text = self._normalize_special_chars(normalized_text)
         normalized_text = self._normalize_numbers(normalized_text)
         normalized_text = self._normalize_english(normalized_text)
         normalized_text = self._add_accents(normalized_text)
+        normalized_text = self._fix_to_particle_stress(normalized_text)
         normalized_text = self._cleanup_final_text(normalized_text)
         normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
 
@@ -342,5 +344,4 @@ class SpeechTTS:
             return audio_bytes
         except Exception as e:
             log.error(f"Vosk TTS synthesis failed: {e}", exc_info=True)
-
             return None

@@ -40,7 +40,7 @@ VOICE_MAP_LEGACY = {
 async def main() -> None:
     parser = ArgumentParser()
     parser.add_argument(
-        "--uri", default="tcp://0.0.0.0:10205", help="unix:// or tcp://"
+        "--uri", default="tcp://0.0.0.0:10200", help="unix:// or tcp://"
     )
     parser.add_argument(
         "--debug",
@@ -77,11 +77,6 @@ async def main() -> None:
         action="store_true",
         help="Enable audio streaming on sentence boundaries.",
     )
-    parser.add_argument(
-        "--use-accentizer",
-        action="store_true",
-        help="Enable automatic stress marking (accentuation) using ruaccent. Requires `ruaccent` to be installed.",
-    )
     args = parser.parse_args()
     
     if not args.vosk_model_name and not args.vosk_model_path:
@@ -103,18 +98,12 @@ async def main() -> None:
         log.propagate = False
         log.info("Log level set to INFO.")
 
-    if args.use_accentizer:
-        log.info("Accentizer (ruaccent) is ENABLED.")
-    else:
-        log.info("Accentizer (ruaccent) is DISABLED.")
-
     # Предзагрузка модели Vosk
     try:
         log.info("Attempting to preload Vosk model...")
         speech_tts_instance = SpeechTTS(
             vosk_model_name=args.vosk_model_name,
-            vosk_model_path=args.vosk_model_path,
-            use_accentizer=args.use_accentizer
+            vosk_model_path=args.vosk_model_path
         )
         log.info("Vosk model preloaded successfully.")
     except (RuntimeError, ValueError) as e:
