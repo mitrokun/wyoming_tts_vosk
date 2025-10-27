@@ -2,6 +2,7 @@ vosk-tts
 wyoming
 eng_to_ipa
 num2words
-ruaccent
 regex
 numpy
+torch==2.9.0+cpu
+silero-stress
