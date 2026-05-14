@@ -1,8 +1,6 @@
 import logging
-import math
 import asyncio
-from typing import Optional
-
+import time
 from wyoming.audio import AudioChunk, AudioStart, AudioStop
 from wyoming.event import Event
 from wyoming.error import Error
@@ -16,183 +14,226 @@ from wyoming.tts import (
     SynthesizeStopped,
 )
 
-from .speech_tts import SpeechTTS
+from .vosk_engine import VoskEngine
+from .ru_norm import RussianTextNormalizer
 from .sentence_boundary import SentenceBoundaryDetector
 
-log = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 class SpeechEventHandler(AsyncEventHandler):
     def __init__(
-        self,
-        wyoming_info: Info,
-        cli_args,
-        speech_tts: SpeechTTS,
-        voice_to_speaker_map: dict,
-        default_speaker_id: int,
-        default_speech_rate: float,
-        *args,  # Сюда попадут reader и writer от сервера
+        self, 
+        wyoming_info: Info, 
+        cli_args, 
+        engine: VoskEngine, 
+        normalizer: RussianTextNormalizer, 
+        voice_map: dict, 
+        def_speaker: int, 
+        def_rate: float, 
+        *args, 
         **kwargs
-    ) -> None:
-        """Инициализация."""
-        # Передаем "пойманные" reader и writer в родительский класс
+    ):
         super().__init__(*args, **kwargs)
-
-        # Сохраняем наши зависимости, которые мы передали явно
         self.cli_args = cli_args
         self.wyoming_info_event = wyoming_info.event()
-        self.speech_tts = speech_tts
-        self.voice_to_speaker_map = voice_to_speaker_map
-        self.default_speaker_id = default_speaker_id
-        self.default_speech_rate = default_speech_rate
+        self.engine = engine
+        self.normalizer = normalizer
+        self.voice_map = voice_map
+        self.def_speaker = def_speaker
+        self.def_rate = def_rate
 
-        # Атрибуты для управления потоком
-        self.is_streaming: bool = False
-        self.sbd: Optional[SentenceBoundaryDetector] = None
-        self._synthesize: Optional[Synthesize] = None
-        
-        log.debug(f"Handler initialized for new connection. Speaker: {self.default_speaker_id}, Rate: {self.default_speech_rate}")
+        # Buffering configuration
+        self.min_chars = getattr(cli_args, "min_characters", 20)
+        self.max_chars = getattr(cli_args, "max_characters", 200)
+
+        # State management
+        self.is_streaming = False
+        self.sbd: SentenceBoundaryDetector | None = None
+        self._synthesize: Synthesize | None = None
+        self._audio_started = False
+        self._is_first_batch = True
+        self._sentence_buffer = ""
 
     async def handle_event(self, event: Event) -> bool:
-        """Обработка события от клиента."""
         if Describe.is_type(event.type):
             await self.write_event(self.wyoming_info_event)
-            log.debug("Sent info")
             return True
 
         try:
-            # === Обработка не-потокового запроса ===
+            # Single-request synthesis (non-streaming)
             if Synthesize.is_type(event.type):
-                # Если мы уже в режиме стриминга, это событие игнорируется
-                # (оно нужно для обратной совместимости)
-                if self.is_streaming:
+                if self.is_streaming: 
                     return True
-                
-                # Если не в режиме стриминга, обрабатываем как обычно
-                synthesize = Synthesize.from_event(event)
-                return await self._handle_synthesize(synthesize)
+                return await self._handle_single_synthesize(Synthesize.from_event(event))
 
-            # (Если сервер запущен без поддержки стриминга, эти блоки не сработают)
-
+            # Start of streaming synthesis
             if SynthesizeStart.is_type(event.type):
-                # Клиент начинает потоковую передачу
-                stream_start = SynthesizeStart.from_event(event)
-                self.is_streaming = True
-                self.sbd = SentenceBoundaryDetector()
-                # Сохраняем голос и другие параметры из стартового события
-                self._synthesize = Synthesize(text="", voice=stream_start.voice)
-                log.debug(f"Text stream started: voice={stream_start.voice}")
+                if getattr(self.cli_args, "disable_streaming", False):
+                    return True
+                await self._handle_stream_start(SynthesizeStart.from_event(event))
                 return True
 
+            # Incoming text chunks
             if SynthesizeChunk.is_type(event.type):
-                # Пришел очередной кусок текста
-                assert self._synthesize is not None
-                assert self.sbd is not None
-                stream_chunk = SynthesizeChunk.from_event(event)
-
-                # Добавляем чанк в детектор и синтезируем каждое готовое предложение
-                for sentence in self.sbd.add_chunk(stream_chunk.text):
-                    log.debug(f"Synthesizing stream sentence: {sentence}")
-                    self._synthesize.text = sentence
-                    await self._handle_synthesize(self._synthesize)
-                
+                if not self.is_streaming or not self.sbd:
+                    return True
+                for sentence in self.sbd.add_chunk(SynthesizeChunk.from_event(event).text):
+                    await self._process_sentence(sentence)
                 return True
 
+            # End of stream
             if SynthesizeStop.is_type(event.type):
-                # Клиент закончил передавать текст
-                assert self._synthesize is not None
-                assert self.sbd is not None
-                
-                # Обрабатываем оставшийся в буфере текст
-                final_text = self.sbd.finish()
-                if final_text:
-                    self._synthesize.text = final_text
-                    await self._handle_synthesize(self._synthesize)
-
-                # Сообщаем клиенту, что мы закончили синтез с нашей стороны
-                await self.write_event(SynthesizeStopped().event())
-
-                # Сбрасываем состояние
-                self.is_streaming = False
-                self.sbd = None
-                self._synthesize = None
-
-                log.debug("Text stream stopped")
+                if not self.is_streaming:
+                    return True
+                await self._handle_stream_stop()
                 return True
-
-            log.warning("Unexpected event type: %s", event.type)
-            return True
 
         except Exception as e:
-            log.error(f"Error handling event: {e}", exc_info=True)
-            await self.write_event(Error(text=str(e), code=e.__class__.__name__).event())
-            # Сбрасываем состояние при ошибке
+            _LOGGER.error(f"Event handling error: {e}", exc_info=True)
+            try:
+                await self.write_event(Error(text=str(e), code=e.__class__.__name__).event())
+            except:
+                pass
             self.is_streaming = False
-            self.sbd = None
-            self._synthesize = None
-            return False # Возвращаем False, чтобы сервер мог разорвать соединение
+            return False
+        
+        return True
 
+    async def _handle_stream_start(self, stream_start: SynthesizeStart):
+        self.is_streaming = True
+        self.sbd = SentenceBoundaryDetector(emit_break_markers=True)
+        self._synthesize = Synthesize(text="", voice=stream_start.voice)
+        self._audio_started = False
+        self._is_first_batch = True
+        self._sentence_buffer = ""
 
-    async def _handle_synthesize(self, synthesize: Synthesize) -> bool:
-        """
-        Основной метод синтеза. Теперь он вызывается как для целых фраз,
-        так и для отдельных предложений из потока.
-        """
-        if not synthesize.text:
-            log.warning("Received synthesize request with empty text")
-            return True # Просто игнорируем пустые запросы
+    async def _handle_stream_stop(self):
+        assert self.sbd is not None
+        final_text = self.sbd.finish()
+        if final_text:
+            await self._process_sentence(final_text)
+        
+        await self._flush_buffer()
 
-        requested_voice_name = synthesize.voice.name if synthesize.voice else None
-        speaker_id = self.default_speaker_id
-        speech_rate = self.default_speech_rate
+        if self._audio_started:
+            await self.write_event(AudioStop().event())
 
-        if requested_voice_name:
-            found_speaker_id = self.voice_to_speaker_map.get(requested_voice_name)
-            if found_speaker_id is not None:
-                speaker_id = found_speaker_id
-            else:
-                log.warning(f"Voice '{requested_voice_name}' not found. Using default ID {self.default_speaker_id}.")
+        await self.write_event(SynthesizeStopped().event())
+        self.is_streaming = False
 
-        if hasattr(synthesize, 'speech_rate') and synthesize.speech_rate is not None:
-            speech_rate = synthesize.speech_rate
+    async def _handle_single_synthesize(self, synthesize: Synthesize) -> bool:
+        self._synthesize = synthesize
+        self._audio_started = False
+        self._is_first_batch = True
+        self._sentence_buffer = ""
         
         text = " ".join(synthesize.text.strip().splitlines())
-        log.debug(f"Processing synthesis: speaker={speaker_id}, rate={speech_rate}, text='{text[:50]}...'")
+        sbd = SentenceBoundaryDetector(emit_break_markers=True)
+        
+        for sentence in sbd.add_chunk(text):
+            await self._process_sentence(sentence)
+            
+        final_text = sbd.finish()
+        if final_text:
+            await self._process_sentence(final_text)
+            
+        await self._flush_buffer()
+        
+        if self._audio_started:
+            await self.write_event(AudioStop().event())
+            
+        return True
 
-        audio_bytes = await self.speech_tts.synthesize(
-            text=text, speaker_id=speaker_id, speech_rate=speech_rate
-        )
+    async def _process_sentence(self, sentence: str):
+        # Ignore structural markers
+        if sentence in ("<PARAGRAPH_BREAK>", "<DIALOGUE_BREAK>"):
+            return
 
-        if audio_bytes is None:
-            log.error(f"Synthesis failed for text: {text[:50]}...")
-            await self.write_event(Error(text="TTS synthesis failed").event())
-            return True # Не разрываем соединение, просто сообщаем об ошибке
+        sentence = sentence.strip()
+        if not sentence:
+            return
+
+        # Phase 1: Rapid response for the first batch
+        if self._is_first_batch:
+            if self._sentence_buffer:
+                self._sentence_buffer += " " + sentence
+            else:
+                self._sentence_buffer = sentence
+            
+            if len(self._sentence_buffer) >= self.min_chars:
+                await self._flush_buffer()
+                self._is_first_batch = False
+            return
+
+        # Phase 2: Sentence merging for better RTFX efficiency
+        current_len = len(self._sentence_buffer)
+        new_len = len(sentence)
+
+        if current_len > 0 and (current_len + new_len + 1) > self.max_chars:
+            await self._flush_buffer()
+
+        if self._sentence_buffer:
+            self._sentence_buffer += " " + sentence
+        else:
+            self._sentence_buffer = sentence
+
+    async def _flush_buffer(self):
+        text_to_synth = self._sentence_buffer.strip()
+        self._sentence_buffer = ""
+        if text_to_synth:
+            await self._synthesize_sentence(text_to_synth)
+
+    async def _synthesize_sentence(self, sentence: str):
+        normalized_text = self.normalizer.normalize(sentence)
+        if not normalized_text: 
+            return
+
+        speaker_id = self.def_speaker
+        rate = self.def_rate
+        
+        if self._synthesize and self._synthesize.voice and self._synthesize.voice.name in self.voice_map:
+            speaker_id = self.voice_map[self._synthesize.voice.name]
+        
+        if self._synthesize and hasattr(self._synthesize, 'speech_rate') and self._synthesize.speech_rate:
+            rate = self._synthesize.speech_rate
+
+        _LOGGER.debug(f"Synth: '{normalized_text}'")
+        start_time = time.monotonic()
+
+        audio_bytes = await self.engine.synthesize(normalized_text, speaker_id, rate)
+        if not audio_bytes: 
+            return
+
+        # Performance metrics
+        elapsed_time = time.monotonic() - start_time
+        audio_duration = len(audio_bytes) / (self.engine.sample_rate * self.engine.sample_width * self.engine.channels)
+        rtfx = audio_duration / max(elapsed_time, 1e-6)
+        _LOGGER.debug(f"Done: RTFX: {rtfx:.2f}x [{audio_duration:.2f}s / {elapsed_time:.2f}s]")
 
         try:
-            rate = self.speech_tts.sample_rate
-            width = self.speech_tts.sample_width
-            channels = self.speech_tts.channels
-
-            await self.write_event(
-                AudioStart(rate=rate, width=width, channels=channels).event()
-            )
-
-            bytes_per_sample = width * channels
-            bytes_per_chunk = bytes_per_sample * self.cli_args.samples_per_chunk
-            
-            if bytes_per_chunk > 0:
-                for i in range(0, len(audio_bytes), bytes_per_chunk):
-                    chunk = audio_bytes[i : i + bytes_per_chunk]
-                    await self.write_event(
-                        AudioChunk(audio=chunk, rate=rate, width=width, channels=channels).event()
-                    )
-            elif len(audio_bytes) > 0:
+            # Initialize audio stream on first chunk
+            if not self._audio_started:
                 await self.write_event(
-                    AudioChunk(audio=audio_bytes, rate=rate, width=width, channels=channels).event()
+                    AudioStart(
+                        rate=self.engine.sample_rate, 
+                        width=self.engine.sample_width, 
+                        channels=self.engine.channels
+                    ).event()
                 )
-
-            await self.write_event(AudioStop().event())
-            log.debug("Completed synthesis request.")
+                self._audio_started = True
+            
+            # Stream audio in fixed-size chunks
+            chunk_size = self.engine.sample_width * self.engine.channels * self.cli_args.samples_per_chunk
+            for i in range(0, len(audio_bytes), chunk_size):
+                await self.write_event(
+                    AudioChunk(
+                        audio=audio_bytes[i:i+chunk_size], 
+                        rate=self.engine.sample_rate, 
+                        width=self.engine.sample_width, 
+                        channels=self.engine.channels
+                    ).event()
+                )
+        except ConnectionError:
+            raise
         except Exception as e:
-            log.error(f"Error streaming audio: {e}", exc_info=True)
-
-        return True
+            _LOGGER.error(f"Streaming error: {e}")
