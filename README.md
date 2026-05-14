@@ -14,7 +14,7 @@ git clone https://github.com/mitrokun/wyoming_tts_vosk.git
 cd wyoming_tts_vosk
 
 # Установите требуемые библиотеки вручную. Простой путь для Win
-pip install vosk-tts wyoming num2words numpy eng_to_ipa ruaccent regex
+pip install wyoming num2words numpy eng_to_ipa regex silero-stress requests tqdm onnxruntime
 # Запустите сервер (здесь пример с кастомным портом)
 python -m wyoming_vosk --uri tcp://0.0.0.0:10205 --speech-rate 1.0
 
@@ -40,18 +40,25 @@ or
 В в HA добавьте службу в интеграции Wyoming Protocol [`IP хоста` и `10205`, если порт не назначен ключем]
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wyoming)
 
-#### CUDA (12.x) 
-Работоспособность тестировалась только на windows.
+#### CUDA (12.x) и прочие onnxruntime
+Работоспособность тестировалась только на nvidia в windows.
 
-Ставим пакет
+Для небольшой модели 0.7 использовать не целесообразно. Для 0.10 — возможно, смотрите на rtfx в логах, запуская с `--debug` 
+
+Ставим пакет (глобально или в венв)
 `pip install onnxruntime-gpu`
 Если есть ошибки при запуске, выполняйте предписания и устанавливайте требуемые версии cuda, cuDNN... 
 в моём случае были установлены onnxruntime-gpu	1.21.1 + cuda toolkit 12.8 + cuddn 9.8
 
-Возможность выбирать устройство обработки отстутвует в библиотеке vosk-tts, если обнаружен onnxruntime-gpu, то выполняться будет на gpu.
-Для поддержки onnxruntime для AMD потребуется модифицировать библиотеку vosk-tts. В теории должно сработать.
+Для активации используется ключ `--provider "CUDAExecutionProvider"`
 
----
-Создано при участии Grok и Gemini. 
+Другие [варианты](https://onnxruntime.ai/docs/install/) для самостоятельной проверки на соответствующем оборудобании
+```
+"TensorRTExecutionProvider",    # NVIDIA RTX
+"ROCMExecutionProvider",        # AMD Linux
+"CoreMLExecutionProvider",      # Apple Mac
+"OpenVINOExecutionProvider",    # Intel
+"DmlExecutionProvider",         # Windows (AMD/Intel/NVIDIA)
+"VulkanExecutionProvider",      # Универсальный GPU
+```
 
-Дорабатывайте и улучшайте на свое усмотретние.
