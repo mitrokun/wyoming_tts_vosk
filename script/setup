@@ -27,7 +27,7 @@ pip_cmd = [pip_exe, "-m", "pip"]
 print("Installing Torch (CPU version)...")
 subprocess.check_call(pip_cmd + [
     "install", 
-    "torch", "torchvision", "torchaudio", 
+    "torch", 
     "--index-url", "https://download.pytorch.org/whl/cpu"
 ])
 
