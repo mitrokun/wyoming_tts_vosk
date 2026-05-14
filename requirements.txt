@@ -3,5 +3,7 @@ eng_to_ipa
 num2words
 silero-stress
 onnxruntime
+requests
 regex
 numpy
+tqdm
