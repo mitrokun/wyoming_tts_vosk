@@ -52,10 +52,11 @@ or
 
 Для активации используется ключ `--provider "CUDAExecutionProvider"`
 
-Другие [варианты](https://onnxruntime.ai/docs/install/) для самостоятельной проверки на соответствующем оборудобании
+Другие [варианты](https://onnxruntime.ai/docs/execution-providers/) для самостоятельной проверки на соответствующем оборудобании
 ```
 "TensorRTExecutionProvider",    # NVIDIA RTX
-"ROCMExecutionProvider",        # AMD Linux
+"MIGraphXExecutionProvider",    # AMD
+"ROCMExecutionProvider",        # AMD deprecated
 "CoreMLExecutionProvider",      # Apple Mac
 "OpenVINOExecutionProvider",    # Intel
 "DmlExecutionProvider",         # Windows (AMD/Intel/NVIDIA)
