@@ -1,7 +1,9 @@
-vosk-tts
 wyoming
 eng_to_ipa
 num2words
-ruaccent
+silero-stress
+onnxruntime
+requests
 regex
 numpy
+tqdm
