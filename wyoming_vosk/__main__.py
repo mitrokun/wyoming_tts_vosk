@@ -56,6 +56,7 @@ def main() -> None:
         choices=[
             "CUDAExecutionProvider",        # NVIDIA
             "TensorRTExecutionProvider",    # NVIDIA RTX
+            "MIGraphXExecutionProvider",
             "ROCMExecutionProvider",        # AMD Linux
             "CoreMLExecutionProvider",      # Apple Mac
             "OpenVINOExecutionProvider",    # Intel
