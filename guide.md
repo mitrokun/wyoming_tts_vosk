@@ -77,5 +77,5 @@ deactivate
 ```bash
 # Запускаем сервер, указав путь к модели
 # Замените USERNAME на ваше имя пользователя
-script/run --uri tcp://0.0.0.0:10205 --streaming --vosk-model-path "/home/USERNAME/wyoming_tts_vosk/vosk-model-tts-ru-0.10-multi"
+script/run --uri tcp://0.0.0.0:10205 --vosk-model-path "/home/USERNAME/wyoming_tts_vosk/vosk-model-tts-ru-0.10-multi"
 ```
