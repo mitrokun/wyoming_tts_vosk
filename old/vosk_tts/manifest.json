@@ -1,9 +1,0 @@
-{
-  "domain": "vosk_tts",
-  "name": "Vosk TTS",
-  "documentation": "https://example.com",
-  "dependencies": [],
-  "codeowners": ["@GG"],
-  "requirements": [],
-  "version": "1.0.0"
-}
