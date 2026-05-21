@@ -36,6 +36,7 @@ def main() -> None:
     parser.add_argument("--vosk-model-path", default=None)
     parser.add_argument("--default-speaker-id", type=int, default=1)
     parser.add_argument("--speech-rate", type=float, default=1.0)
+    parser.add_argument("--enable-stress", action="store_true", help="Enable auto stress marks")
     parser.add_argument(
         "--disable-streaming", action="store_true", help="Disable audio streaming"
     )
@@ -75,7 +76,7 @@ def main() -> None:
     )
 
     log.info("Loading normalizer...")
-    normalizer = RussianTextNormalizer()
+    normalizer = RussianTextNormalizer(use_stress=args.enable_stress)
 
     log.info("Loading Vosk model...")
     try:

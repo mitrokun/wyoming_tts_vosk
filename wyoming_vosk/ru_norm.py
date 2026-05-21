@@ -45,7 +45,7 @@ class _EnglishToRussianNormalizer:
         "knowledge": "ноуледж", "new": "нью", "just": "джаст", "error": "+эрор",
         "video": "видео", "ru": "ру", "com": "ком", "done": "дон",
         "media": "медиа", "hot": "хот", "https": "аштитипиэс",
-        "http": "аштитипи", "upper": "аппер",
+        "http": "аштитипи", "upper": "аппер", "xxx": "иксыкс+ыкс",
     }
 
     IPA_TO_RUSSIAN_MAP = {
@@ -114,7 +114,7 @@ class RussianTextNormalizer:
         "от", "ото", "по", "о", "об", "обо", "у", "при", "над", "надо", "и", 
         "пред", "предо", "без", "безо", "для", "про", "до", "а", "но", "да",
         "что", "кто", "то", "кого", "не", "ни", "чего", "да", "где", "ты", "мы",
-        "какой", "какая", "тоже", "конечно",
+        "какой", "какая", "тоже", "конечно", "бока",
     }
 
     _EMOJI_PATTERN = re.compile(
@@ -124,10 +124,10 @@ class RussianTextNormalizer:
         flags=re.UNICODE
     )
 
-    def __init__(self):
+    def __init__(self, use_stress=False):
         self._eng_norm = _EnglishToRussianNormalizer()
         self.accentor = None
-        if SILERO_STRESS_AVAILABLE:
+        if SILERO_STRESS_AVAILABLE and use_stress:
             try:
                 self.accentor = load_accentor()
             except Exception as e:

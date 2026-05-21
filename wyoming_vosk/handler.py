@@ -208,7 +208,12 @@ class SpeechEventHandler(AsyncEventHandler):
         elapsed_time = time.monotonic() - start_time
         audio_duration = len(audio_bytes) / (self.engine.sample_rate * self.engine.sample_width * self.engine.channels)
         rtfx = audio_duration / max(elapsed_time, 1e-6)
-        _LOGGER.debug(f"Done: RTFX: {rtfx:.2f}x [{audio_duration:.2f}s / {elapsed_time:.2f}s]")
+        
+        # Получаем имя голоса для лога
+        voice_name = self._synthesize.voice.name if (self._synthesize and self._synthesize.voice) else "default"
+
+        # Измененная строка лога:
+        _LOGGER.debug(f"Done: RTFX: {rtfx:.2f}x [{audio_duration:.2f}s / {elapsed_time:.2f}s] | voice: {voice_name}")
 
         try:
             # Initialize audio stream on first chunk
