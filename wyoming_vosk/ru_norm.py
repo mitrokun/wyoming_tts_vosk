@@ -1,7 +1,8 @@
 import logging
 import re
-from num2words import num2words
+
 import eng_to_ipa as ipa
+from num2words import num2words
 
 try:
     from silero_stress import load_accentor
@@ -10,6 +11,7 @@ except ImportError:
     SILERO_STRESS_AVAILABLE = False
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class _EnglishToRussianNormalizer:
     """Internal helper to transliterate English words to Russian phonetics."""
@@ -36,7 +38,7 @@ class _EnglishToRussianNormalizer:
         "cuda": "к+уда", "ibm": "эйбиэм", "usb": "юэсб+и",
         "chatgpt": "чат джипит+и", "gpt": "джипит+и", "copilot": "копайлот",
         "intel": "интел", "android": "андроид", "linux": "линукс",
-        "3d": "трид+э", "amd": "айэмд+и", "enter": "+энта",
+        "amd": "айэмд+и", "enter": "+энта",
         "setup": "сет+ап", "mode": "мод", "pc": "пис+и",
         "work": "ворк", "world": "ворлд", "bird": "бёрд", "girl": "гёрл",
         "burn": "бёрн", "her": "хёр", "early": "ёрли", "service": "сёрвис",
@@ -108,6 +110,15 @@ class _EnglishToRussianNormalizer:
 class RussianTextNormalizer:
     """Main normalization class for Russian TTS."""
 
+    # Dictionary for alphanumeric exceptions. All keys should be lowercase.
+    ALPHANUMERIC_EXCEPTIONS = {
+        "3d": "трид+э",
+        "4k": "четыре к+а",
+        "8k": "восемь к+а",
+        "1c": "один +эс",  # Latin C
+        "1с": "один +эс",  # Cyrillic C
+    }
+
     # These words (clitics) usually don't have their own stress in speech
     SKIP_STRESS_WORDS = {
         "в", "во", "на", "за", "под", "подо", "из", "изо", "ко", "с", "со",
@@ -138,12 +149,26 @@ class RussianTextNormalizer:
             re.IGNORECASE
         )
 
+        # Build case-insensitive alphanumeric exceptions regex pattern.
+        # Longest keys are sorted first to ensure they match before sub-keys.
+        sorted_keys = sorted(
+            self.ALPHANUMERIC_EXCEPTIONS.keys(), key=len, reverse=True
+        )
+        escaped_keys = [re.escape(k) for k in sorted_keys]
+        self._alphanum_pattern = re.compile(
+            r'\b(' + '|'.join(escaped_keys) + r')\b',
+            re.IGNORECASE
+        )
+
     # --- PUBLIC API ---
 
     def normalize(self, text: str) -> str:
         """Main entry point for text normalization."""
         # 1. Cleanup
         text = self._EMOJI_PATTERN.sub('', text)
+
+        # 1.5. Apply alphanumeric exceptions (e.g. 3D, 4G, 1C)
+        text = self._replace_alphanumeric_exceptions(text)
 
         # 2. Math & Numbers
         text = self._handle_math_and_symbols(text)
@@ -159,6 +184,14 @@ class RussianTextNormalizer:
         return text.strip()
 
     # --- HIGH LEVEL STEPS ---
+
+    def _replace_alphanumeric_exceptions(self, text: str) -> str:
+        """Replaces hybrid alphanumeric exception terms with phonetic forms."""
+        def replacer(match):
+            key = match.group(0).lower()
+            return self.ALPHANUMERIC_EXCEPTIONS.get(key, match.group(0))
+
+        return self._alphanum_pattern.sub(replacer, text)
 
     def _handle_math_and_symbols(self, text: str) -> str:
         # Convert "+" to word when used with numbers
@@ -178,7 +211,18 @@ class RussianTextNormalizer:
                 return num2words(int(s), lang='ru')
             except Exception:
                 return s
-        return re.sub(r'\b\d+([.,]\d+)?\b', replacer, text)
+
+        # 1. Separate adjacent letters and digits
+        text = re.sub(r'([a-zA-Zа-яА-ЯёЁ])(?=\d)', r'\1 ', text)
+        text = re.sub(r'(\d)(?=[a-zA-Zа-яА-ЯёЁ])', r'\1 ', text)
+
+        # 2. Standard replacement for numbers with word boundaries
+        text = re.sub(r'\b\d+([.,]\d+)?\b', replacer, text)
+
+        # 3. Fallback: replace any remaining digits to prevent crashes
+        text = re.sub(r'\d+', replacer, text)
+
+        return text
 
     def _add_accents(self, text: str) -> str:
         """Adds stress marks using Silero, skipping clitics and pre-stressed words."""
@@ -186,13 +230,13 @@ class RussianTextNormalizer:
             return text
 
         try:
-            # Tokenize into word units (including existing + marks) and everything else
+            # Tokenize into word units and everything else
             tokens = re.findall(r'([а-яА-ЯёЁ+]+|[^а-яА-ЯёЁ+]+)', text)
             
             # Identify words that actually need accentuation
             words_to_acc = []
             for t in tokens:
-                # Word must be pure Cyrillic, not in skip list, and not already stressed
+                # Word must be pure Cyrillic, not in skip list
                 if re.fullmatch(r'[а-яА-ЯёЁ]+', t):
                     if t.lower() not in self.SKIP_STRESS_WORDS:
                         words_to_acc.append(t)
@@ -206,8 +250,9 @@ class RussianTextNormalizer:
             
             result = []
             for t in tokens:
-                # Same check as above to replace original word with stressed version
-                if re.fullmatch(r'[а-яА-ЯёЁ]+', t) and t.lower() not in self.SKIP_STRESS_WORDS:
+                # Replace original word with stressed version
+                if (re.fullmatch(r'[а-яА-ЯёЁ]+', t) and 
+                        t.lower() not in self.SKIP_STRESS_WORDS):
                     try:
                         result.append(next(acc_iter))
                     except StopIteration:
@@ -273,7 +318,8 @@ class RussianTextNormalizer:
             plurals = {1: " десятых", 2: " сотых", 3: " тысячных"}
 
             if frac_len in suffixes:
-                suffix = suffixes[frac_len] if (last_digit == 1 and last_two != 11) else plurals[frac_len]
+                suffix = (suffixes[frac_len] if (last_digit == 1 and last_two != 11) 
+                          else plurals[frac_len])
                 return f"{int_t} и {frac_t}{suffix}"
 
             return f"{int_t} точка {frac_t}"
